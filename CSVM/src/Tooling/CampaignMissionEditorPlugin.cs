@@ -121,6 +121,12 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         Top,
         Bottom,
         Thickness,
+        TopColorR,
+        TopColorG,
+        TopColorB,
+        BottomColorR,
+        BottomColorG,
+        BottomColorB,
     }
 
     private enum WeatherWindField
@@ -912,6 +918,24 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         AddWeatherCloudBandField(
             WeatherCloudBandField.Thickness,
             "Opaque core depth (m)");
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.TopColorR,
+            "Top color red (raw)");
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.TopColorG,
+            "Top color green (raw)");
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.TopColorB,
+            "Top color blue (raw)");
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.BottomColorR,
+            "Bottom color red (raw)");
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.BottomColorG,
+            "Bottom color green (raw)");
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.BottomColorB,
+            "Bottom color blue (raw)");
         _weatherCloudBandPanel.AddChild(_weatherCloudBandGrid);
 
         _applyWeatherCloudBand = Button(
@@ -963,7 +987,6 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         }
 
         _weatherCloudBand = binding;
-        SetWeatherCloudBandEditable(true);
         CampaignWeatherCloudBandState state =
             binding.State;
         SetWeatherCloudBandField(
@@ -975,9 +998,33 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         SetWeatherCloudBandField(
             WeatherCloudBandField.Thickness,
             state.Thickness);
+        SetWeatherCloudBandColor(
+            state.TopColor,
+            WeatherCloudBandField.TopColorR,
+            WeatherCloudBandField.TopColorG,
+            WeatherCloudBandField.TopColorB);
+        SetWeatherCloudBandColor(
+            state.BottomColor,
+            WeatherCloudBandField.BottomColorR,
+            WeatherCloudBandField.BottomColorG,
+            WeatherCloudBandField.BottomColorB);
+        SetWeatherCloudBandEditable(
+            true,
+            state.TopColor.HasValue,
+            state.BottomColor.HasValue);
+        string topColor =
+            CloudColorStatus(
+                "TOP_COLOR",
+                state.TopColor,
+                binding.TopColorUsesByteEncoding);
+        string bottomColor =
+            CloudColorStatus(
+                "BOTTOM_COLOR",
+                state.BottomColor,
+                binding.BottomColorUsesByteEncoding);
         _weatherCloudBandStatus.Text =
             "The band midpoint also switches the cloud deck between ceiling and floor geometry. "
-            + "TOP_COLOR and BOTTOM_COLOR stay raw.";
+            + $"{topColor} {bottomColor}";
     }
 
     private void HideWeatherCloudBand()
@@ -990,12 +1037,28 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
     }
 
     private void SetWeatherCloudBandEditable(
-        bool editable)
+        bool editable,
+        bool topColorEditable = false,
+        bool bottomColorEditable = false)
     {
-        foreach (LineEdit field in _weatherCloudBandFields.Values)
-        {
-            field.Editable = editable;
-        }
+        _weatherCloudBandFields[WeatherCloudBandField.Top].Editable =
+            editable;
+        _weatherCloudBandFields[WeatherCloudBandField.Bottom].Editable =
+            editable;
+        _weatherCloudBandFields[WeatherCloudBandField.Thickness].Editable =
+            editable;
+        _weatherCloudBandFields[WeatherCloudBandField.TopColorR].Editable =
+            editable && topColorEditable;
+        _weatherCloudBandFields[WeatherCloudBandField.TopColorG].Editable =
+            editable && topColorEditable;
+        _weatherCloudBandFields[WeatherCloudBandField.TopColorB].Editable =
+            editable && topColorEditable;
+        _weatherCloudBandFields[WeatherCloudBandField.BottomColorR].Editable =
+            editable && bottomColorEditable;
+        _weatherCloudBandFields[WeatherCloudBandField.BottomColorG].Editable =
+            editable && bottomColorEditable;
+        _weatherCloudBandFields[WeatherCloudBandField.BottomColorB].Editable =
+            editable && bottomColorEditable;
 
         _applyWeatherCloudBand.Disabled = !editable;
     }
@@ -1006,6 +1069,42 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         _weatherCloudBandFields[field].Text =
             FormatFloat(value);
 
+    private void SetWeatherCloudBandColor(
+        CampaignWeatherColorState? color,
+        WeatherCloudBandField red,
+        WeatherCloudBandField green,
+        WeatherCloudBandField blue)
+    {
+        if (color is { } value)
+        {
+            SetWeatherCloudBandField(red, value.R);
+            SetWeatherCloudBandField(green, value.G);
+            SetWeatherCloudBandField(blue, value.B);
+            return;
+        }
+
+        _weatherCloudBandFields[red].Text = "";
+        _weatherCloudBandFields[green].Text = "";
+        _weatherCloudBandFields[blue].Text = "";
+    }
+
+    private string CloudColorStatus(
+        string name,
+        CampaignWeatherColorState? color,
+        bool usesByteEncoding)
+    {
+        if (!color.HasValue)
+        {
+            return $"{name} is absent and will not be created.";
+        }
+
+        string encoding =
+            usesByteEncoding
+                ? "0-255"
+                : "normalized 0-1";
+        return $"{name} uses authored {encoding} values.";
+    }
+
     private void ApplyWeatherCloudBand()
     {
         if (_weatherCloudBand == null)
@@ -1015,18 +1114,32 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
 
         try
         {
+            CampaignWeatherCloudBandState current =
+                _weatherCloudBand.State;
             CampaignWeatherCloudBandState state = new(
                 WeatherCloudBandValue(WeatherCloudBandField.Top),
                 WeatherCloudBandValue(WeatherCloudBandField.Bottom),
-                WeatherCloudBandValue(WeatherCloudBandField.Thickness));
+                WeatherCloudBandValue(WeatherCloudBandField.Thickness),
+                current.TopColor.HasValue
+                    ? WeatherCloudBandColor(
+                        WeatherCloudBandField.TopColorR,
+                        WeatherCloudBandField.TopColorG,
+                        WeatherCloudBandField.TopColorB)
+                    : null,
+                current.BottomColor.HasValue
+                    ? WeatherCloudBandColor(
+                        WeatherCloudBandField.BottomColorR,
+                        WeatherCloudBandField.BottomColorG,
+                        WeatherCloudBandField.BottomColorB)
+                    : null);
             bool changed =
                 _weatherCloudBand.Apply(state);
             BindWeatherCloudBand();
             RebuildSelectedReader();
             UpdateExportState();
             Success(changed
-                ? "Updated weather CLOUD_COVER geometry."
-                : "Weather CLOUD_COVER geometry is unchanged.");
+                ? "Updated weather CLOUD_COVER."
+                : "Weather CLOUD_COVER is unchanged.");
         }
         catch (FormatException e)
         {
@@ -1061,6 +1174,15 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
 
         return value;
     }
+
+    private CampaignWeatherColorState WeatherCloudBandColor(
+        WeatherCloudBandField red,
+        WeatherCloudBandField green,
+        WeatherCloudBandField blue) =>
+        new(
+            WeatherCloudBandValue(red),
+            WeatherCloudBandValue(green),
+            WeatherCloudBandValue(blue));
 
     private void BuildWeatherWindPanel()
     {

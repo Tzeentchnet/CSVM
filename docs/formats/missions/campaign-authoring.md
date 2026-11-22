@@ -35,7 +35,7 @@ the next authoring layer.
 | Where should an editor save? | A local external modding folder, normally `<mod>\<chapter>\<mission>\zrdr.zip`, with every retained reader stored as `*.zrd.json`. The generated full scope is not a distributable artifact. |
 | What should remain read-only first? | The chapter world, shared and chapter reader scopes, setup scripts, and compiled animation archives. They have wider effects or no current writer. |
 | Can the retail archive be overwritten? | No. CSVM reads extracted JSON from a modding folder; it has no `zrdr.zbd` writer, and the retail game does not read this override format. |
-| What can the editor change now? | Existing string and float leaves in any mission reader; typed `PLAYER_INIT` position, authored attitude, throttle, and speed; each complete `aiv.zrd` block's position, yaw, team, and group; and `weather.zrd`'s cloud-band geometry, wind, plus each runtime zone's fog color, distance, and altitude ranges. Lists, nulls, file membership, wider scopes, and compiled data remain read-only. |
+| What can the editor change now? | Existing string and float leaves in any mission reader; typed `PLAYER_INIT` position, authored attitude, throttle, and speed; each complete `aiv.zrd` block's position, yaw, team, and group; and `weather.zrd`'s cloud-band geometry and existing colors, wind, plus each runtime zone's fog color, distance, and altitude ranges. Lists, nulls, file membership, wider scopes, and compiled data remain read-only. |
 | Does the project include a Godot editor plugin? | Yes. The enabled **Campaign Missions** dock loads a user-owned install or disc image, selects one of the 24 missions, exposes its raw tree and typed start, cloud-band, wind, and fog tabs, and exports the complete mission scope. |
 
 ## Conceptual model
@@ -278,9 +278,13 @@ panel with a diagnostic instead of constructing defaults.
 The cloud-band tab follows `WeatherState.Load` by binding the last list-valued `CLOUD_COVER`
 block, then the first valid immediate `TOP`, `BOTTOM`, and `THICKNESS` values inside it. It requires
 `TOP` above `BOTTOM` and an opaque-core thickness from zero through the full band depth. Applying
-it writes those exact indexes. Optional colors, later duplicate scalars, unknown fields, and every
-other weather block remain raw. The tab warns that changing the midpoint also moves the hard
-cloud-deck regime transition; it does not claim to preview that geometry.
+it writes those exact indexes. The optional `TOP_COLOR` and `BOTTOM_COLOR` fields each bind the
+first immediate list the runtime would parse. An existing complete triple is editable in its
+authored normalized or 0–255 encoding; an absent triple stays disabled and is not created. A
+present malformed first list disables the panel rather than skipping to a later duplicate that
+the runtime would not use. Later duplicates, vector tails, unknown fields, and every other weather
+block remain raw. The tab warns that changing the midpoint also moves the hard cloud-deck regime
+transition; it does not claim to preview that geometry.
 
 The wind tab follows `WeatherState.Load` at both parsing layers. It binds the last list-valued
 `WIND` block selected by the outer alternating dictionary, then the first valid immediate value
@@ -304,7 +308,7 @@ instead of silently converting the encoding.
 | `dzones.zrd` | Read-only gamez gate ribbons with enable, objective, and snapshot controls | Edit mission overrides, not gate geometry. |
 | `targets.zrd` | Node-selection and message-key table | Edit starting flags and labels. Offer an explicit mission-local copy when a mission inherits the chapter table. |
 | `objectives.zrd` | Ordered objective list or graph plus directive inspector | Preserve contiguous numbering, raw directive order, unknown directives, and target paths. |
-| `weather.zrd` | Implemented cloud-band, wind, and per-zone fog tabs; precipitation, cloud colors, per-zone light, clip range, and zone preview remain planned | Edit `CLOUD_COVER` band edges and opaque-core depth and `WIND` in their runtime units. Select every runtime `ZONE<digit>` in file order and edit `FOG_COLOR`, `FOG_RANGES`, and `FOG_ALTITUDE` without changing normalized-vs-255 color encoding. Optional cloud colors, `SW_*` twins, unknown values, sunlight, and clip range remain raw. |
+| `weather.zrd` | Implemented cloud-band, wind, and per-zone fog tabs; precipitation, per-zone light, clip range, and zone preview remain planned | Edit `CLOUD_COVER` band edges, opaque-core depth, and existing top/bottom colors, plus `WIND` in its runtime units. Select every runtime `ZONE<digit>` in file order and edit `FOG_COLOR`, `FOG_RANGES`, and `FOG_ALTITUDE` without changing normalized-vs-255 color encoding. Missing cloud colors are not created. `SW_*` twins, unknown values, sunlight, and clip range remain raw. |
 | `startanims.zrd` | Ordered name list | Select and reorder existing animation names. |
 | `map.zrd`, `net.zrd`, animation readers | Raw tree or read-only typed summary | Preserve without promising a visible campaign effect. |
 | `.gw`, gamez, chapter readers, compiled anims | Read-only dependency browser | Show what controls a value and where a wider-scope edit would belong. |
@@ -361,8 +365,9 @@ agreement with `WeatherState.Load`. `CampaignWeatherFogZones` tests cover dynami
 discovery, `SW_*` and unknown-field preservation, duplicate selection, both color encodings,
 validation before mutation, exact raw-leaf edits, and `WeatherState` parity.
 `CampaignWeatherCloudBand` tests cover outer duplicate selection, first-valid bare scalars,
-optional-field preservation, geometry validation before mutation, exact raw-leaf edits, and
-`WeatherState` band and whiteout parity. A real campaign launch remains required.
+first-list optional-color selection, both color encodings, absent and malformed colors, duplicate
+and tail preservation, validation before mutation, exact raw-leaf edits, and `WeatherState` band,
+whiteout, and color parity. A real campaign launch remains required.
 
 ## Evidence & limits
 
@@ -379,9 +384,10 @@ reopen comparison. `CampaignPlayerInit.cs` owns the exact-index typed player-sta
 speed conversion. `CampaignRosterStarts.cs` owns exact-index roster-start views.
 `CampaignWeatherWind.cs` owns the exact-index typed wind view and follows `WeatherState.Load`'s
 alternating-list lookup. `CampaignWeatherFog.cs` owns dynamic exact-index fog-zone views and keeps
-the source color encoding. `CampaignWeatherCloudBand.cs` owns the exact-index typed cloud-band
-geometry view. `CampaignMissionEditorPlugin.cs` owns the Godot dock. `AnimProgram.cs` establishes
-compiled-first animation precedence.
+the source color encoding. `CampaignWeatherColor.cs` owns the shared raw color-encoding
+validation. `CampaignWeatherCloudBand.cs` owns the exact-index typed cloud-band geometry and
+existing-color view. `CampaignMissionEditorPlugin.cs` owns the Godot dock. `AnimProgram.cs`
+establishes compiled-first animation precedence.
 
 The editor targets CSVM's external modding path only. It does not define a binary writer for the
 original game, compiled animation authoring, chapter-world editing, a shared-scope campaign

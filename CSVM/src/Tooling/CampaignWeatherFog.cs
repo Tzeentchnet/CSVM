@@ -201,9 +201,10 @@ public sealed class CampaignWeatherFogZone
 
     /// <summary>Whether the current raw color uses the 0-255 encoding.</summary>
     public bool UsesByteColor =>
-        Color(0) > 1f
-        || Color(1) > 1f
-        || Color(2) > 1f;
+        CampaignWeatherColor.UsesByteEncoding(
+            Color(0),
+            Color(1),
+            Color(2));
 
     /// <summary>The current authored values, including raw color components.</summary>
     public CampaignWeatherFogZoneState State =>
@@ -242,34 +243,15 @@ public sealed class CampaignWeatherFogZone
     internal string? StateProblem(
         CampaignWeatherFogZoneState state)
     {
-        if (!float.IsFinite(state.ColorR)
-            || !float.IsFinite(state.ColorG)
-            || !float.IsFinite(state.ColorB))
-        {
-            return "fog color components must be finite";
-        }
-
-        float max =
-            MathF.Max(
+        string? colorProblem =
+            CampaignWeatherColor.Problem(
                 state.ColorR,
-                MathF.Max(state.ColorG, state.ColorB));
-        float min =
-            MathF.Min(
-                state.ColorR,
-                MathF.Min(state.ColorG, state.ColorB));
-        if (UsesByteColor)
+                state.ColorG,
+                state.ColorB,
+                UsesByteColor);
+        if (colorProblem != null)
         {
-            bool black = max == 0f;
-            if (min < 0f
-                || max > 255f
-                || (max <= 1f && !black))
-            {
-                return "0-255 fog color must stay within that encoding and cannot become an ambiguous all-0-to-1 triple";
-            }
-        }
-        else if (min < 0f || max > 1f)
-        {
-            return "normalized fog color components must stay between 0 and 1";
+            return $"fog {colorProblem}";
         }
 
         if (!float.IsFinite(state.Near)

@@ -69,6 +69,25 @@ internal static class CampaignRawList
         return -1;
     }
 
+    internal static int FirstListValueIndex(
+        List<object?> values,
+        string wanted)
+    {
+        for (int i = 0; i + 1 < values.Count; i++)
+        {
+            if (values[i] is string key
+                && key.Equals(
+                    wanted,
+                    StringComparison.OrdinalIgnoreCase)
+                && values[i + 1] is List<object?>)
+            {
+                return i + 1;
+            }
+        }
+
+        return -1;
+    }
+
     internal static int FirstFiniteVectorValueIndex(
         List<object?> values,
         string wanted,

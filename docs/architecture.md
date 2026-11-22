@@ -800,7 +800,8 @@ to dispatch `--run-tests`.
 - `src/Tooling/CampaignMissionDocument.cs`, one campaign mission's lossless raw reader document and verified complete-scope ZIP export.
 - `src/Tooling/CampaignPlayerInit.cs`, the exact-index typed view that edits a mission's complete `PLAYER_INIT` record without rebuilding its raw objectives tree.
 - `src/Tooling/CampaignRosterStarts.cs`, exact-index typed views over each `aiv.zrd` block's spawn position, yaw, team and mission-logic group.
-- `src/Tooling/CampaignWeatherCloudBand.cs`, the exact-index typed view over `weather.zrd`'s cloud-band geometry.
+- `src/Tooling/CampaignWeatherColor.cs`, shared source-encoding validation for typed weather colors.
+- `src/Tooling/CampaignWeatherCloudBand.cs`, the exact-index typed view over `weather.zrd`'s cloud-band geometry and existing colors.
 - `src/Tooling/CampaignWeatherFog.cs`, dynamic exact-index views over `weather.zrd`'s runtime fog-zone fields.
 - `src/Tooling/CampaignWeatherWind.cs`, the exact-index typed view over `weather.zrd`'s static and random-walk wind fields.
 - `src/Tooling/CampaignMissionEditorPlugin.cs`, the Godot editor dock for loading, inspecting, editing and exporting campaign mission reader scopes.

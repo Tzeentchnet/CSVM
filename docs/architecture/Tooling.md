@@ -90,9 +90,9 @@ A plane's mounted `cockpit1` (`PlaneBuilder`'s direct child) never rides in its 
 ## src/Tooling/CampaignRawList.cs
 The shared exact-index lookup over raw alternating reader lists. It mirrors `ZrdrDict`'s
 last-duplicate and bare-key behavior while retaining selected value indexes for typed editors. It
-also locates first-valid immediate finite scalars and vectors for readers that use raw walkers.
-`CampaignPlayerInit.cs`, `CampaignWeatherCloudBand.cs`, `CampaignWeatherWind.cs` and
-`CampaignWeatherFog.cs` are its consumers.
+also locates first-valid immediate finite scalars and vectors, and first immediate list values,
+for readers that use raw walkers. `CampaignPlayerInit.cs`, `CampaignWeatherCloudBand.cs`,
+`CampaignWeatherWind.cs` and `CampaignWeatherFog.cs` are its consumers.
 
 ## src/Tooling/CampaignMissionDocument.cs
 One story mission's complete raw `ZrdrFile` set as an editable document. It deep-copies the source,
@@ -115,12 +115,17 @@ enabled/template state, names, net ids and every trailing field remain raw. The 
 block is identified separately because campaign placement reads `PLAYER_INIT`. Read
 `Mech3/AiSkills.cs` for the runtime interpretation.
 
+## src/Tooling/CampaignWeatherColor.cs
+The shared authored-color rule for typed weather editors. It identifies normalized versus 0–255
+triples with the runtime's strict component-above-1 test and validates edits without silently
+changing that encoding. `CampaignWeatherCloudBand.cs` and `CampaignWeatherFog.cs` use it.
+
 ## src/Tooling/CampaignWeatherCloudBand.cs
-The exact-index typed view over `weather.zrd`'s bare-scalar `CLOUD_COVER` geometry. It follows the
-outer alternating dictionary's last-list selection, then binds the first valid immediate `TOP`,
-`BOTTOM`, and `THICKNESS` values, matching `Effects/Weather.cs`. It validates the band and opaque
-core together. Optional colors, duplicate and unknown fields, and every other weather block stay
-in the raw mission document.
+The exact-index typed view over `weather.zrd`'s `CLOUD_COVER` geometry and optional colors. It
+follows the outer alternating dictionary's last-list selection, the first valid immediate
+geometry scalars, and the first immediate top/bottom color lists, matching `Effects/Weather.cs`.
+It validates the band, opaque core, and each existing color before writing. Missing colors,
+duplicate and unknown fields, and every other weather block stay in the raw mission document.
 
 ## src/Tooling/CampaignWeatherWind.cs
 The exact-index typed view over `weather.zrd`'s bare-scalar `WIND` block. It follows the outer

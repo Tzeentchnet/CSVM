@@ -15,11 +15,13 @@ The whiteout band (a vertical altitude band the plane vanishes inside), bare-sca
 The Godot Campaign Missions dock edits `TOP`, `BOTTOM`, and `THICKNESS` as one validated geometry:
 `TOP > BOTTOM` and `0 <= THICKNESS <= TOP - BOTTOM`. It selects the outer dictionary's last
 list-valued `CLOUD_COVER` block and the first valid immediate value of each scalar inside it,
-matching `WeatherState.Load`, then writes those exact raw indexes. Optional colors, later
-duplicates, unknown fields, and trailing values remain untouched. A missing or malformed block
-disables the typed tab instead of inventing defaults. Moving the midpoint or thinning the core can
-expose the hard deck-regime transition described below; the tab warns about that limit and does
-not provide a geometry preview.
+matching `WeatherState.Load`, then writes those exact raw indexes. It also edits each existing
+`TOP_COLOR` and `BOTTOM_COLOR` triple at the first immediate list the runtime would parse, keeping
+that triple's normalized or 0–255 raw encoding. A missing optional color remains disabled and is
+not created. A present malformed first color list disables the tab rather than selecting a later
+duplicate. Later duplicates, unknown fields, and trailing values remain untouched. Moving the
+midpoint or thinning the core can expose the hard deck-regime transition described below; the tab
+warns about that limit and does not provide a geometry preview.
 
 ⚠ **`TOP_COLOR`/`BOTTOM_COLOR` are not the deck mesh's face tints**, whatever the names
 suggest (this page said so until). Three of the four chapters that author them,
