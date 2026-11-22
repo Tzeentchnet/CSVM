@@ -47,7 +47,9 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
     private readonly List<CampaignMission> _missions = new();
     private readonly Dictionary<PlayerInitField, LineEdit> _playerInitFields = new();
     private readonly Dictionary<RosterStartField, LineEdit> _rosterStartFields = new();
+    private readonly Dictionary<WeatherCloudBandField, LineEdit> _weatherCloudBandFields = new();
     private readonly Dictionary<WeatherWindField, LineEdit> _weatherWindFields = new();
+    private readonly Dictionary<WeatherFogField, LineEdit> _weatherFogFields = new();
 
     private LineEdit _sourcePath = null!;
     private OptionButton _missionPicker = null!;
@@ -68,17 +70,28 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
     private Label _rosterStartMeta = null!;
     private Label _rosterStartStatus = null!;
     private Button _applyRosterStart = null!;
+    private VBoxContainer _weatherCloudBandPanel = null!;
+    private GridContainer _weatherCloudBandGrid = null!;
+    private Label _weatherCloudBandStatus = null!;
+    private Button _applyWeatherCloudBand = null!;
     private VBoxContainer _weatherWindPanel = null!;
     private GridContainer _weatherWindGrid = null!;
     private Label _weatherWindStatus = null!;
     private Button _applyWeatherWind = null!;
+    private VBoxContainer _weatherFogPanel = null!;
+    private OptionButton _weatherFogPicker = null!;
+    private GridContainer _weatherFogGrid = null!;
+    private Label _weatherFogStatus = null!;
+    private Button _applyWeatherFog = null!;
     private FileDialog _sourceDialog = null!;
     private FileDialog _modDialog = null!;
     private IGameFileSource? _source;
     private CampaignMissionDocument? _document;
     private CampaignPlayerInit? _playerInit;
     private CampaignRosterStarts? _rosterStarts;
+    private CampaignWeatherCloudBand? _weatherCloudBand;
     private CampaignWeatherWind? _weatherWind;
+    private CampaignWeatherFogZones? _weatherFog;
     private bool _rebuildingTree;
 
     private enum PlayerInitField
@@ -103,6 +116,13 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         Group,
     }
 
+    private enum WeatherCloudBandField
+    {
+        Top,
+        Bottom,
+        Thickness,
+    }
+
     private enum WeatherWindField
     {
         StaticX,
@@ -111,6 +131,17 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         RandomMaxSpeed,
         RandomAccel,
         RandomAngVel,
+    }
+
+    private enum WeatherFogField
+    {
+        ColorR,
+        ColorG,
+        ColorB,
+        Near,
+        Far,
+        Low,
+        High,
     }
 
     public override void _Ready()
@@ -162,7 +193,9 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         AddChild(_typedTabs);
         BuildPlayerInitPanel();
         BuildRosterStartPanel();
+        BuildWeatherCloudBandPanel();
         BuildWeatherWindPanel();
+        BuildWeatherFogPanel();
 
         _readerTree = new Tree
         {
@@ -314,7 +347,9 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
             _readerPicker.Disabled = _document.Files.Count == 0;
             BindPlayerInit();
             BindRosterStarts();
+            BindWeatherCloudBand();
             BindWeatherWind();
+            BindWeatherFog();
             _typedTabs.Visible = true;
             if (_document.Files.Count > 0)
             {
@@ -852,6 +887,181 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         return value;
     }
 
+    private void BuildWeatherCloudBandPanel()
+    {
+        _weatherCloudBandPanel = new VBoxContainer
+        {
+            Name = "Cloud Band",
+            Visible = false,
+        };
+        _weatherCloudBandPanel.AddChild(new Label
+        {
+            Text = "Weather cloud band (CLOUD_COVER)",
+        });
+
+        _weatherCloudBandGrid = new GridContainer
+        {
+            Columns = 2,
+        };
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.Top,
+            "Clear top altitude (m)");
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.Bottom,
+            "Clear bottom altitude (m)");
+        AddWeatherCloudBandField(
+            WeatherCloudBandField.Thickness,
+            "Opaque core depth (m)");
+        _weatherCloudBandPanel.AddChild(_weatherCloudBandGrid);
+
+        _applyWeatherCloudBand = Button(
+            "Apply cloud band",
+            ApplyWeatherCloudBand);
+        _weatherCloudBandPanel.AddChild(_applyWeatherCloudBand);
+        _weatherCloudBandStatus = new Label
+        {
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        _weatherCloudBandPanel.AddChild(_weatherCloudBandStatus);
+        _typedTabs.AddChild(_weatherCloudBandPanel);
+    }
+
+    private void AddWeatherCloudBandField(
+        WeatherCloudBandField field,
+        string label)
+    {
+        _weatherCloudBandGrid.AddChild(new Label
+        {
+            Text = label,
+        });
+        LineEdit edit = new()
+        {
+            Name = field.ToString(),
+        };
+        _weatherCloudBandFields.Add(field, edit);
+        _weatherCloudBandGrid.AddChild(edit);
+    }
+
+    private void BindWeatherCloudBand()
+    {
+        if (_document == null)
+        {
+            HideWeatherCloudBand();
+            return;
+        }
+
+        _weatherCloudBandPanel.Visible = true;
+        if (!CampaignWeatherCloudBand.TryBind(
+                _document,
+                out CampaignWeatherCloudBand? binding,
+                out string problem))
+        {
+            _weatherCloudBand = null;
+            SetWeatherCloudBandEditable(false);
+            _weatherCloudBandStatus.Text = problem;
+            return;
+        }
+
+        _weatherCloudBand = binding;
+        SetWeatherCloudBandEditable(true);
+        CampaignWeatherCloudBandState state =
+            binding.State;
+        SetWeatherCloudBandField(
+            WeatherCloudBandField.Top,
+            state.Top);
+        SetWeatherCloudBandField(
+            WeatherCloudBandField.Bottom,
+            state.Bottom);
+        SetWeatherCloudBandField(
+            WeatherCloudBandField.Thickness,
+            state.Thickness);
+        _weatherCloudBandStatus.Text =
+            "The band midpoint also switches the cloud deck between ceiling and floor geometry. "
+            + "TOP_COLOR and BOTTOM_COLOR stay raw.";
+    }
+
+    private void HideWeatherCloudBand()
+    {
+        _weatherCloudBand = null;
+        if (_weatherCloudBandPanel != null)
+        {
+            _weatherCloudBandPanel.Visible = false;
+        }
+    }
+
+    private void SetWeatherCloudBandEditable(
+        bool editable)
+    {
+        foreach (LineEdit field in _weatherCloudBandFields.Values)
+        {
+            field.Editable = editable;
+        }
+
+        _applyWeatherCloudBand.Disabled = !editable;
+    }
+
+    private void SetWeatherCloudBandField(
+        WeatherCloudBandField field,
+        float value) =>
+        _weatherCloudBandFields[field].Text =
+            FormatFloat(value);
+
+    private void ApplyWeatherCloudBand()
+    {
+        if (_weatherCloudBand == null)
+        {
+            return;
+        }
+
+        try
+        {
+            CampaignWeatherCloudBandState state = new(
+                WeatherCloudBandValue(WeatherCloudBandField.Top),
+                WeatherCloudBandValue(WeatherCloudBandField.Bottom),
+                WeatherCloudBandValue(WeatherCloudBandField.Thickness));
+            bool changed =
+                _weatherCloudBand.Apply(state);
+            BindWeatherCloudBand();
+            RebuildSelectedReader();
+            UpdateExportState();
+            Success(changed
+                ? "Updated weather CLOUD_COVER geometry."
+                : "Weather CLOUD_COVER geometry is unchanged.");
+        }
+        catch (FormatException e)
+        {
+            _weatherCloudBandStatus.Text = e.Message;
+        }
+        catch (ArgumentException e)
+        {
+            _weatherCloudBandStatus.Text = e.Message;
+        }
+        catch (InvalidOperationException e)
+        {
+            _weatherCloudBandStatus.Text = e.Message;
+            Log.Warn("ui", $"campaign editor: {e.Message}");
+        }
+    }
+
+    private float WeatherCloudBandValue(
+        WeatherCloudBandField field)
+    {
+        string text =
+            _weatherCloudBandFields[field].Text;
+        if (!float.TryParse(
+                text,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out float value)
+            || !float.IsFinite(value))
+        {
+            throw new FormatException(
+                $"{field} must be a finite number.");
+        }
+
+        return value;
+    }
+
     private void BuildWeatherWindPanel()
     {
         _weatherWindPanel = new VBoxContainer
@@ -1046,6 +1256,240 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         return value;
     }
 
+    private void BuildWeatherFogPanel()
+    {
+        _weatherFogPanel = new VBoxContainer
+        {
+            Name = "Fog",
+            Visible = false,
+        };
+        _weatherFogPanel.AddChild(new Label
+        {
+            Text = "Weather fog zones",
+        });
+
+        _weatherFogPicker = new OptionButton
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        };
+        _weatherFogPicker.ItemSelected += ShowWeatherFogZone;
+        _weatherFogPanel.AddChild(_weatherFogPicker);
+
+        _weatherFogGrid = new GridContainer
+        {
+            Columns = 2,
+        };
+        AddWeatherFogField(
+            WeatherFogField.ColorR,
+            "Fog red (raw)");
+        AddWeatherFogField(
+            WeatherFogField.ColorG,
+            "Fog green (raw)");
+        AddWeatherFogField(
+            WeatherFogField.ColorB,
+            "Fog blue (raw)");
+        AddWeatherFogField(
+            WeatherFogField.Near,
+            "Distance near (m)");
+        AddWeatherFogField(
+            WeatherFogField.Far,
+            "Distance far (m)");
+        AddWeatherFogField(
+            WeatherFogField.Low,
+            "Altitude low (m)");
+        AddWeatherFogField(
+            WeatherFogField.High,
+            "Altitude high (m)");
+        _weatherFogPanel.AddChild(_weatherFogGrid);
+
+        _applyWeatherFog = Button(
+            "Apply weather fog",
+            ApplyWeatherFog);
+        _weatherFogPanel.AddChild(_applyWeatherFog);
+        _weatherFogStatus = new Label
+        {
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        _weatherFogPanel.AddChild(_weatherFogStatus);
+        _typedTabs.AddChild(_weatherFogPanel);
+    }
+
+    private void AddWeatherFogField(
+        WeatherFogField field,
+        string label)
+    {
+        _weatherFogGrid.AddChild(new Label
+        {
+            Text = label,
+        });
+        LineEdit edit = new()
+        {
+            Name = field.ToString(),
+        };
+        _weatherFogFields.Add(field, edit);
+        _weatherFogGrid.AddChild(edit);
+    }
+
+    private void BindWeatherFog()
+    {
+        if (_document == null)
+        {
+            HideWeatherFog();
+            return;
+        }
+
+        int selected =
+            Math.Max(0, _weatherFogPicker.Selected);
+        _weatherFogPanel.Visible = true;
+        _weatherFogPicker.Clear();
+        if (!CampaignWeatherFogZones.TryBind(
+                _document,
+                out CampaignWeatherFogZones? binding,
+                out string problem))
+        {
+            _weatherFog = null;
+            _weatherFogPicker.Disabled = true;
+            SetWeatherFogEditable(false);
+            _weatherFogStatus.Text = problem;
+            return;
+        }
+
+        _weatherFog = binding;
+        foreach (CampaignWeatherFogZone zone in binding.Zones)
+        {
+            _weatherFogPicker.AddItem(zone.Name);
+        }
+
+        _weatherFogPicker.Disabled =
+            binding.Zones.Count == 0;
+        selected =
+            Math.Min(selected, binding.Zones.Count - 1);
+        _weatherFogPicker.Select(selected);
+        ShowWeatherFogZone(selected);
+    }
+
+    private void HideWeatherFog()
+    {
+        _weatherFog = null;
+        if (_weatherFogPanel != null)
+        {
+            _weatherFogPanel.Visible = false;
+        }
+    }
+
+    private void ShowWeatherFogZone(long selected)
+    {
+        if (_weatherFog == null
+            || (ulong)selected >= (ulong)_weatherFog.Zones.Count)
+        {
+            return;
+        }
+
+        CampaignWeatherFogZone zone =
+            _weatherFog.Zones[(int)selected];
+        CampaignWeatherFogZoneState state =
+            zone.State;
+        SetWeatherFogField(WeatherFogField.ColorR, state.ColorR);
+        SetWeatherFogField(WeatherFogField.ColorG, state.ColorG);
+        SetWeatherFogField(WeatherFogField.ColorB, state.ColorB);
+        SetWeatherFogField(WeatherFogField.Near, state.Near);
+        SetWeatherFogField(WeatherFogField.Far, state.Far);
+        SetWeatherFogField(WeatherFogField.Low, state.Low);
+        SetWeatherFogField(WeatherFogField.High, state.High);
+        SetWeatherFogEditable(true);
+        _weatherFogStatus.Text = zone.UsesByteColor
+            ? "Color uses the authored 0-255 encoding. SW_* twins and other zone fields stay raw."
+            : "Color uses the authored normalized 0-1 encoding. SW_* twins and other zone fields stay raw.";
+    }
+
+    private void SetWeatherFogEditable(bool editable)
+    {
+        foreach (LineEdit field in _weatherFogFields.Values)
+        {
+            field.Editable = editable;
+        }
+
+        _applyWeatherFog.Disabled = !editable;
+    }
+
+    private void SetWeatherFogField(
+        WeatherFogField field,
+        float value) =>
+        _weatherFogFields[field].Text =
+            FormatFloat(value);
+
+    private void ApplyWeatherFog()
+    {
+        CampaignWeatherFogZone? zone =
+            SelectedWeatherFogZone();
+        if (zone == null)
+        {
+            return;
+        }
+
+        try
+        {
+            CampaignWeatherFogZoneState state = new(
+                WeatherFogValue(WeatherFogField.ColorR),
+                WeatherFogValue(WeatherFogField.ColorG),
+                WeatherFogValue(WeatherFogField.ColorB),
+                WeatherFogValue(WeatherFogField.Near),
+                WeatherFogValue(WeatherFogField.Far),
+                WeatherFogValue(WeatherFogField.Low),
+                WeatherFogValue(WeatherFogField.High));
+            bool changed =
+                zone.Apply(state);
+            BindWeatherFog();
+            RebuildSelectedReader();
+            UpdateExportState();
+            Success(changed
+                ? $"Updated weather fog '{zone.Name}'."
+                : $"Weather fog '{zone.Name}' is unchanged.");
+        }
+        catch (FormatException e)
+        {
+            _weatherFogStatus.Text = e.Message;
+        }
+        catch (ArgumentException e)
+        {
+            _weatherFogStatus.Text = e.Message;
+        }
+        catch (InvalidOperationException e)
+        {
+            _weatherFogStatus.Text = e.Message;
+            Log.Warn("ui", $"campaign editor: {e.Message}");
+        }
+    }
+
+    private CampaignWeatherFogZone? SelectedWeatherFogZone()
+    {
+        int index =
+            _weatherFogPicker.Selected;
+        return _weatherFog != null
+            && (uint)index < (uint)_weatherFog.Zones.Count
+            ? _weatherFog.Zones[index]
+            : null;
+    }
+
+    private float WeatherFogValue(
+        WeatherFogField field)
+    {
+        string text =
+            _weatherFogFields[field].Text;
+        if (!float.TryParse(
+                text,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out float value)
+            || !float.IsFinite(value))
+        {
+            throw new FormatException(
+                $"{field} must be a finite number.");
+        }
+
+        return value;
+    }
+
     private void AddValue(
         TreeItem parent,
         List<int> path,
@@ -1167,6 +1611,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
                 BindPlayerInit();
                 BindRosterStarts();
                 BindWeatherWind();
+                BindWeatherFog();
                 Success(
                     $"Edited {_document.Files[fileIndex].Key} [{PathText(path)}].");
             }
@@ -1232,7 +1677,9 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         _typedTabs.Visible = false;
         HidePlayerInit();
         HideRosterStarts();
+        HideWeatherCloudBand();
         HideWeatherWind();
+        HideWeatherFog();
         _readerPicker.Clear();
         _readerPicker.Disabled = true;
         _readerTree.Clear();

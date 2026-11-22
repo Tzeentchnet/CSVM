@@ -62,6 +62,13 @@ sRGB→linear before handing it to the world shader (which mixes fog in linear s
 Round-trip check: a fully-fogged pixel renders back at its source byte value, C4's 192
 measures 192 gray, C1's 0.69 measures 176 (0.69·255).
 
+The campaign editor exposes each `FOG_COLOR` component in this authored raw encoding. A normalized
+zone stays in the 0–1 range; a zone whose current triple has a component strictly above 1 stays in
+the 0–255 range. It does not normalize and rewrite the source, because doing so would change
+otherwise untouched float values and make the raw tree disagree with the format's two encodings.
+The all-zero triple follows the runtime rule and is treated as normalized, which is lossless
+because black has the same result under either encoding.
+
 *Bug this fixed:* the integer chapters built `Color(192,192,192)` (an HDR
 colour far above 1), which sRGB→linear then blew to pure white, C4's Rocky-Mountains fog
 was a blown-white wall with a hard horizon cut instead of its data's 192 haze.

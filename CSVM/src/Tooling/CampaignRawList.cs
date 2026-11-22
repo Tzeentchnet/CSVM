@@ -48,4 +48,59 @@ internal static class CampaignRawList
 
         return found;
     }
+
+    internal static int FirstFiniteFloatValueIndex(
+        List<object?> values,
+        string wanted)
+    {
+        for (int i = 0; i + 1 < values.Count; i++)
+        {
+            if (values[i] is string key
+                && key.Equals(
+                    wanted,
+                    StringComparison.OrdinalIgnoreCase)
+                && values[i + 1] is float value
+                && float.IsFinite(value))
+            {
+                return i + 1;
+            }
+        }
+
+        return -1;
+    }
+
+    internal static int FirstFiniteVectorValueIndex(
+        List<object?> values,
+        string wanted,
+        int componentCount)
+    {
+        for (int i = 0; i + 1 < values.Count; i++)
+        {
+            if (values[i] is not string key
+                || !key.Equals(
+                    wanted,
+                    StringComparison.OrdinalIgnoreCase)
+                || values[i + 1] is not List<object?> vector
+                || vector.Count < componentCount)
+            {
+                continue;
+            }
+
+            bool finite = true;
+            for (int component = 0;
+                 component < componentCount;
+                 component++)
+            {
+                finite &= vector[component] is float value
+                    && float.IsFinite(value);
+            }
+
+            if (finite)
+            {
+                return i + 1;
+            }
+        }
+
+        return -1;
+    }
 }

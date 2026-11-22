@@ -89,8 +89,10 @@ A plane's mounted `cockpit1` (`PlaneBuilder`'s direct child) never rides in its 
 
 ## src/Tooling/CampaignRawList.cs
 The shared exact-index lookup over raw alternating reader lists. It mirrors `ZrdrDict`'s
-last-duplicate and bare-key behavior while retaining the selected value index for typed editors.
-`CampaignPlayerInit.cs` and `CampaignWeatherWind.cs` are its current consumers.
+last-duplicate and bare-key behavior while retaining selected value indexes for typed editors. It
+also locates first-valid immediate finite scalars and vectors for readers that use raw walkers.
+`CampaignPlayerInit.cs`, `CampaignWeatherCloudBand.cs`, `CampaignWeatherWind.cs` and
+`CampaignWeatherFog.cs` are its consumers.
 
 ## src/Tooling/CampaignMissionDocument.cs
 One story mission's complete raw `ZrdrFile` set as an editable document. It deep-copies the source,
@@ -113,18 +115,31 @@ enabled/template state, names, net ids and every trailing field remain raw. The 
 block is identified separately because campaign placement reads `PLAYER_INIT`. Read
 `Mech3/AiSkills.cs` for the runtime interpretation.
 
+## src/Tooling/CampaignWeatherCloudBand.cs
+The exact-index typed view over `weather.zrd`'s bare-scalar `CLOUD_COVER` geometry. It follows the
+outer alternating dictionary's last-list selection, then binds the first valid immediate `TOP`,
+`BOTTOM`, and `THICKNESS` values, matching `Effects/Weather.cs`. It validates the band and opaque
+core together. Optional colors, duplicate and unknown fields, and every other weather block stay
+in the raw mission document.
+
 ## src/Tooling/CampaignWeatherWind.cs
 The exact-index typed view over `weather.zrd`'s bare-scalar `WIND` block. It follows the outer
 alternating dictionary's last-duplicate selection, then binds the first complete immediate value
 for static velocity, random maximum speed, random acceleration and random turn rate, matching
 `Effects/Weather.cs`. Writes preserve duplicate and unknown fields and every other weather block.
 
+## src/Tooling/CampaignWeatherFog.cs
+Dynamic exact-index views over `weather.zrd`'s runtime `ZONE<digit>` fog blocks, in file order and
+without their `SW_*` twins. Each view edits fog color, distance range and altitude range while
+retaining the source's normalized or 0–255 color encoding. Unknown and duplicate values remain in
+the raw mission document. Read `Effects/Weather.cs` for the runtime interpretation.
+
 ## src/Tooling/CampaignMissionEditorPlugin.cs
 The enabled Godot editor dock over `CampaignMissionDocument`: source and mod-folder pickers, the 24
 campaign rows, one reader's raw tree, editable scalar cells, and typed player-start, roster-start
-and weather-wind tabs. It opens folders and disc images through `GameFileSource`, so the editor and
-a flight decode the same bytes. Structure, nulls, other typed panels and world preview remain
-outside this dock.
+and weather cloud-band/wind/fog tabs. It opens folders and disc images through `GameFileSource`, so
+the editor and a flight decode the same bytes. Structure, nulls, other typed panels and world
+preview remain outside this dock.
 Format and workflow:
 [../formats/missions/campaign-authoring.md](../formats/missions/campaign-authoring.md).
 

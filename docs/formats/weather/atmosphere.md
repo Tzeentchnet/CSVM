@@ -12,6 +12,15 @@ The whiteout band (a vertical altitude band the plane vanishes inside), bare-sca
 | `THICKNESS` | depth of the fully-opaque **core**, centred on the band midpoint, **not** an edge transition. C1/IA1 970–1124 ±30 ⇒ clear at 970/1124, total only in 1032–1062, linear ramps between |
 | `TOP_COLOR` / `BOTTOM_COLOR` | *(optional)* the **band's** colours (integer RGB), what the in-cloud whiteout paints. Absent in C1/IA1. Decoded into `CloudTopColor`/`CloudBottomColor` and consumed by `WeatherState.WhiteoutColor` |
 
+The Godot Campaign Missions dock edits `TOP`, `BOTTOM`, and `THICKNESS` as one validated geometry:
+`TOP > BOTTOM` and `0 <= THICKNESS <= TOP - BOTTOM`. It selects the outer dictionary's last
+list-valued `CLOUD_COVER` block and the first valid immediate value of each scalar inside it,
+matching `WeatherState.Load`, then writes those exact raw indexes. Optional colors, later
+duplicates, unknown fields, and trailing values remain untouched. A missing or malformed block
+disables the typed tab instead of inventing defaults. Moving the midpoint or thinning the core can
+expose the hard deck-regime transition described below; the tab warns about that limit and does
+not provide a geometry preview.
+
 ⚠ **`TOP_COLOR`/`BOTTOM_COLOR` are not the deck mesh's face tints**, whatever the names
 suggest (this page said so until). Three of the four chapters that author them,
 C1B, C3, C5, ship **no `CloudDeck` mesh at all** (`WorldBuilder`'s coverage table), so there

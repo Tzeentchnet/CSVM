@@ -250,5 +250,5 @@ Full validated format documentation lives in **`docs/formats/`**, one page per f
 
 ## Current status / next step
 
-Use the targeted/quick development loop above, then verify landed code with the complete
-**`.\scripts\RunTests.ps1`**;
+Campaign mission editing is active on `feature/campaign-mission-editor`; next add lossless
+`CLOUD_COVER` color editing, then run the complete **`.\scripts\RunTests.ps1`** before merge.

@@ -98,19 +98,20 @@ public sealed class CampaignWeatherWind
         var wind =
             (List<object?>)inner[windIndex]!;
         int staticVelocityIndex =
-            FirstVectorIndex(
+            CampaignRawList.FirstFiniteVectorValueIndex(
                 wind,
-                StaticVelocityKey);
+                StaticVelocityKey,
+                3);
         int randomMaxSpeedIndex =
-            FirstFloatIndex(
+            CampaignRawList.FirstFiniteFloatValueIndex(
                 wind,
                 RandomMaxSpeedKey);
         int randomAccelIndex =
-            FirstFloatIndex(
+            CampaignRawList.FirstFiniteFloatValueIndex(
                 wind,
                 RandomAccelKey);
         int randomAngVelIndex =
-            FirstFloatIndex(
+            CampaignRawList.FirstFiniteFloatValueIndex(
                 wind,
                 RandomAngVelKey);
         if (staticVelocityIndex < 0
@@ -154,52 +155,6 @@ public sealed class CampaignWeatherWind
             _randomAngVelIndex,
             state.RandomAngVelDeg);
         return changed;
-    }
-
-    private static int FirstVectorIndex(
-        List<object?> values,
-        string key)
-    {
-        for (int i = 0; i + 1 < values.Count; i++)
-        {
-            if (values[i] is string found
-                && found.Equals(
-                    key,
-                    StringComparison.OrdinalIgnoreCase)
-                && values[i + 1] is List<object?> vector
-                && vector.Count >= 3
-                && vector[0] is float x
-                && float.IsFinite(x)
-                && vector[1] is float y
-                && float.IsFinite(y)
-                && vector[2] is float z
-                && float.IsFinite(z))
-            {
-                return i + 1;
-            }
-        }
-
-        return -1;
-    }
-
-    private static int FirstFloatIndex(
-        List<object?> values,
-        string key)
-    {
-        for (int i = 0; i + 1 < values.Count; i++)
-        {
-            if (values[i] is string found
-                && found.Equals(
-                    key,
-                    StringComparison.OrdinalIgnoreCase)
-                && values[i + 1] is float value
-                && float.IsFinite(value))
-            {
-                return i + 1;
-            }
-        }
-
-        return -1;
     }
 
     private static void Validate(
