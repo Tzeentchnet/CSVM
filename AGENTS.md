@@ -11,6 +11,8 @@ changes `CSVM/`.
 
 ## Agent tooling specifics
 
+- **Do not use VS Code task tools.** Creating or running one rewrites `.vscode/tasks.json` and
+  triggers a manual review. Run commands through the repository scripts or the shell instead.
 - **Skills** are authored under `.claude/skills/` and mirrored at `.agents/skills/` via a local
   junction, so any tool that reads the `.agents/` convention sees the same skill set. Create the
   mirror once per checkout (it's a local link, not tracked in git):
