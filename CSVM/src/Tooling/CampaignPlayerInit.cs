@@ -83,7 +83,10 @@ public sealed class CampaignPlayerInit
             return false;
         }
 
-        int valueIndex = ValueIndex(inner);
+        int valueIndex =
+            CampaignRawList.LastListValueIndex(
+                inner,
+                Key);
         if (valueIndex < 0)
         {
             problem = valueIndex == -2
@@ -144,48 +147,6 @@ public sealed class CampaignPlayerInit
         }
 
         return changed;
-    }
-
-    // Mirrors ZrdrDict's alternating walk, including the last duplicate and bare-key behavior.
-    private static int ValueIndex(
-        List<object?> inner)
-    {
-        int found = -1;
-        int i = 0;
-        while (i < inner.Count)
-        {
-            if (inner[i] is not string key)
-            {
-                i++;
-                continue;
-            }
-
-            if (i + 1 < inner.Count
-                && inner[i + 1] is List<object?>)
-            {
-                if (key.Equals(
-                        Key,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    found = i + 1;
-                }
-
-                i += 2;
-            }
-            else
-            {
-                if (key.Equals(
-                        Key,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    found = -2;
-                }
-
-                i++;
-            }
-        }
-
-        return found;
     }
 
     private static bool Complete(object? value) =>

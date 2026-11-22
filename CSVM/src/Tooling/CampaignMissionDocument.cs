@@ -53,28 +53,6 @@ public sealed class CampaignMissionDocument
     /// edits go through <see cref="SetLeaf"/>.</summary>
     public IReadOnlyList<ZrdrFile> Files => _files;
 
-    /// <summary>Finds a reader by its archive or extracted-JSON spelling. Returns -1 when it is
-    /// absent.</summary>
-    public int FindFileIndex(string name)
-    {
-        ZrdrFile? found =
-            ZrdrZbd.Find(_files, name);
-        if (found == null)
-        {
-            return -1;
-        }
-
-        for (int i = 0; i < _files.Count; i++)
-        {
-            if (ReferenceEquals(_files[i], found))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
     /// <summary>The 24 campaign rows read from a user-owned game-file source.</summary>
     public static IReadOnlyList<CampaignMission> LoadMissions(IGameFileSource game)
     {
@@ -114,11 +92,31 @@ public sealed class CampaignMissionDocument
         ZrdrSet scope) =>
         new(mission, scope, sourceLocation: null);
 
-    internal static CampaignMissionDocument FromScope(
-        CampaignMission mission,
-        ZrdrSet scope,
-        string sourceLocation) =>
-        new(mission, scope, sourceLocation);
+    /// <summary>The retail path of one campaign mission's reader scope.</summary>
+    public static string ArchivePath(CampaignMission mission) =>
+        $"ZBD/{mission.ChapterFolder}/{mission.MissionFolder}/zrdr.zbd";
+
+    /// <summary>Finds a reader by its archive or extracted-JSON spelling. Returns -1 when it is
+    /// absent.</summary>
+    public int FindFileIndex(string name)
+    {
+        ZrdrFile? found =
+            ZrdrZbd.Find(_files, name);
+        if (found == null)
+        {
+            return -1;
+        }
+
+        for (int i = 0; i < _files.Count; i++)
+        {
+            if (ReferenceEquals(_files[i], found))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
 
     /// <summary>Returns one value addressed by reader position and raw list indexes.</summary>
     public object? ValueAt(int fileIndex, IReadOnlyList<int> path)
@@ -267,9 +265,11 @@ public sealed class CampaignMissionDocument
         }
     }
 
-    /// <summary>The retail path of one campaign mission's reader scope.</summary>
-    public static string ArchivePath(CampaignMission mission) =>
-        $"ZBD/{mission.ChapterFolder}/{mission.MissionFolder}/zrdr.zbd";
+    internal static CampaignMissionDocument FromScope(
+        CampaignMission mission,
+        ZrdrSet scope,
+        string sourceLocation) =>
+        new(mission, scope, sourceLocation);
 
     private static void EnsureOutside(
         string outputRoot,
@@ -294,6 +294,20 @@ public sealed class CampaignMissionDocument
             throw new InvalidOperationException(
                 $"the modding folder cannot be inside the {label} '{forbidden}'");
         }
+    }
+
+    private static string Invariant(FormattableString value) =>
+        FormattableString.Invariant(value);
+
+    private static List<object?> Copy(List<object?> source)
+    {
+        var copy = new List<object?>(source.Count);
+        foreach (object? value in source)
+        {
+            copy.Add(value is List<object?> nested ? Copy(nested) : value);
+        }
+
+        return copy;
     }
 
     private void WriteZip(string path)
@@ -364,7 +378,7 @@ public sealed class CampaignMissionDocument
         }
     }
 
-    private static void WriteList(
+    private void WriteList(
         Utf8JsonWriter json,
         List<object?> list,
         string reader)
@@ -398,7 +412,7 @@ public sealed class CampaignMissionDocument
         json.WriteEndArray();
     }
 
-    private static bool SameList(
+    private bool SameList(
         List<object?> expected,
         List<object?> actual)
     {
@@ -432,7 +446,7 @@ public sealed class CampaignMissionDocument
         return true;
     }
 
-    private static bool SameScalar(object left, object right) =>
+    private bool SameScalar(object left, object right) =>
         (left, right) switch
         {
             (string a, string b) =>
@@ -451,17 +465,4 @@ public sealed class CampaignMissionDocument
                 Invariant(
                     $"reader index {index} is outside the {_files.Count}-reader scope"));
 
-    private static string Invariant(FormattableString value) =>
-        FormattableString.Invariant(value);
-
-    private static List<object?> Copy(List<object?> source)
-    {
-        var copy = new List<object?>(source.Count);
-        foreach (object? value in source)
-        {
-            copy.Add(value is List<object?> nested ? Copy(nested) : value);
-        }
-
-        return copy;
-    }
 }

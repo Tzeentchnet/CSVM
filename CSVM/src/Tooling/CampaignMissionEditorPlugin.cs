@@ -47,6 +47,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
     private readonly List<CampaignMission> _missions = new();
     private readonly Dictionary<PlayerInitField, LineEdit> _playerInitFields = new();
     private readonly Dictionary<RosterStartField, LineEdit> _rosterStartFields = new();
+    private readonly Dictionary<WeatherWindField, LineEdit> _weatherWindFields = new();
 
     private LineEdit _sourcePath = null!;
     private OptionButton _missionPicker = null!;
@@ -67,13 +68,50 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
     private Label _rosterStartMeta = null!;
     private Label _rosterStartStatus = null!;
     private Button _applyRosterStart = null!;
+    private VBoxContainer _weatherWindPanel = null!;
+    private GridContainer _weatherWindGrid = null!;
+    private Label _weatherWindStatus = null!;
+    private Button _applyWeatherWind = null!;
     private FileDialog _sourceDialog = null!;
     private FileDialog _modDialog = null!;
     private IGameFileSource? _source;
     private CampaignMissionDocument? _document;
     private CampaignPlayerInit? _playerInit;
     private CampaignRosterStarts? _rosterStarts;
+    private CampaignWeatherWind? _weatherWind;
     private bool _rebuildingTree;
+
+    private enum PlayerInitField
+    {
+        X,
+        Y,
+        Z,
+        Pitch,
+        Yaw,
+        Roll,
+        Throttle,
+        Speed,
+    }
+
+    private enum RosterStartField
+    {
+        X,
+        Y,
+        Z,
+        Yaw,
+        Team,
+        Group,
+    }
+
+    private enum WeatherWindField
+    {
+        StaticX,
+        StaticY,
+        StaticZ,
+        RandomMaxSpeed,
+        RandomAccel,
+        RandomAngVel,
+    }
 
     public override void _Ready()
     {
@@ -124,6 +162,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         AddChild(_typedTabs);
         BuildPlayerInitPanel();
         BuildRosterStartPanel();
+        BuildWeatherWindPanel();
 
         _readerTree = new Tree
         {
@@ -275,6 +314,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
             _readerPicker.Disabled = _document.Files.Count == 0;
             BindPlayerInit();
             BindRosterStarts();
+            BindWeatherWind();
             _typedTabs.Visible = true;
             if (_document.Files.Count > 0)
             {
@@ -349,195 +389,195 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         }
     }
 
-        private void BuildPlayerInitPanel()
+    private void BuildPlayerInitPanel()
+    {
+        _playerInitPanel = new VBoxContainer
         {
-            _playerInitPanel = new VBoxContainer
-            {
-                Name = "Player Start",
-                Visible = false,
-            };
-            _playerInitPanel.AddChild(new Label
-            {
-                Text = "Player start (PLAYER_INIT)",
-            });
+            Name = "Player Start",
+            Visible = false,
+        };
+        _playerInitPanel.AddChild(new Label
+        {
+            Text = "Player start (PLAYER_INIT)",
+        });
 
-            _playerInitPending = new Label();
-            _playerInitPanel.AddChild(_playerInitPending);
+        _playerInitPending = new Label();
+        _playerInitPanel.AddChild(_playerInitPending);
 
-            _playerInitGrid = new GridContainer
-            {
-                Columns = 2,
-            };
-            AddPlayerInitField(PlayerInitField.X, "X (m)");
-            AddPlayerInitField(PlayerInitField.Y, "Y (m)");
-            AddPlayerInitField(PlayerInitField.Z, "Z (m)");
-            AddPlayerInitField(PlayerInitField.Pitch, "Pitch (deg)");
-            AddPlayerInitField(PlayerInitField.Yaw, "Yaw (deg)");
-            AddPlayerInitField(PlayerInitField.Roll, "Roll (deg)");
-            AddPlayerInitField(PlayerInitField.Throttle, "Throttle (0-1)");
-            AddPlayerInitField(PlayerInitField.Speed, "Speed (m/s)");
-            _playerInitPanel.AddChild(_playerInitGrid);
+        _playerInitGrid = new GridContainer
+        {
+            Columns = 2,
+        };
+        AddPlayerInitField(PlayerInitField.X, "X (m)");
+        AddPlayerInitField(PlayerInitField.Y, "Y (m)");
+        AddPlayerInitField(PlayerInitField.Z, "Z (m)");
+        AddPlayerInitField(PlayerInitField.Pitch, "Pitch (deg)");
+        AddPlayerInitField(PlayerInitField.Yaw, "Yaw (deg)");
+        AddPlayerInitField(PlayerInitField.Roll, "Roll (deg)");
+        AddPlayerInitField(PlayerInitField.Throttle, "Throttle (0-1)");
+        AddPlayerInitField(PlayerInitField.Speed, "Speed (m/s)");
+        _playerInitPanel.AddChild(_playerInitGrid);
 
-            _applyPlayerInit = Button("Apply player start", ApplyPlayerInit);
-            _playerInitPanel.AddChild(_applyPlayerInit);
-            _playerInitPanel.AddChild(new Label
-            {
-                Text = "Pitch and roll are preserved; CSVM currently applies yaw only.",
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            _playerInitStatus = new Label
-            {
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            };
-            _playerInitPanel.AddChild(_playerInitStatus);
-            _typedTabs.AddChild(_playerInitPanel);
+        _applyPlayerInit = Button("Apply player start", ApplyPlayerInit);
+        _playerInitPanel.AddChild(_applyPlayerInit);
+        _playerInitPanel.AddChild(new Label
+        {
+            Text = "Pitch and roll are preserved; CSVM currently applies yaw only.",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        });
+        _playerInitStatus = new Label
+        {
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        _playerInitPanel.AddChild(_playerInitStatus);
+        _typedTabs.AddChild(_playerInitPanel);
+    }
+
+    private void AddPlayerInitField(
+        PlayerInitField field,
+        string label)
+    {
+        _playerInitGrid.AddChild(new Label
+        {
+            Text = label,
+        });
+        LineEdit edit = new()
+        {
+            Name = field.ToString(),
+        };
+        _playerInitFields.Add(field, edit);
+        _playerInitGrid.AddChild(edit);
+    }
+
+    private void BindPlayerInit()
+    {
+        if (_document == null)
+        {
+            HidePlayerInit();
+            return;
         }
 
-        private void AddPlayerInitField(
-            PlayerInitField field,
-            string label)
-        {
-            _playerInitGrid.AddChild(new Label
-            {
-                Text = label,
-            });
-            LineEdit edit = new()
-            {
-                Name = field.ToString(),
-            };
-            _playerInitFields.Add(field, edit);
-            _playerInitGrid.AddChild(edit);
-        }
-
-        private void BindPlayerInit()
-        {
-            if (_document == null)
-            {
-                HidePlayerInit();
-                return;
-            }
-
-            _playerInitPanel.Visible = true;
-            if (!CampaignPlayerInit.TryBind(
-                    _document,
-                    out CampaignPlayerInit? binding,
-                    out string problem))
-            {
-                _playerInit = null;
-                SetPlayerInitEditable(false);
-                _playerInitPending.Text = "Pending flag: unavailable";
-                _playerInitStatus.Text = problem;
-                return;
-            }
-
-            _playerInit = binding;
-            SetPlayerInitEditable(true);
-            CampaignPlayerInitState state = binding.State;
-            _playerInitPending.Text =
-                $"Pending flag (read-only): {FormatFloat(binding.Pending)}";
-            SetPlayerInitField(PlayerInitField.X, state.X);
-            SetPlayerInitField(PlayerInitField.Y, state.Y);
-            SetPlayerInitField(PlayerInitField.Z, state.Z);
-            SetPlayerInitField(PlayerInitField.Pitch, state.PitchDeg);
-            SetPlayerInitField(PlayerInitField.Yaw, state.YawDeg);
-            SetPlayerInitField(PlayerInitField.Roll, state.RollDeg);
-            SetPlayerInitField(PlayerInitField.Throttle, state.ThrottleFrac);
-            SetPlayerInitField(PlayerInitField.Speed, state.SpeedMps);
-            _playerInitStatus.Text =
-                $"Speed is stored as m/s divided by {FormatFloat(SpawnPoints.SpeedScale)}.";
-        }
-
-        private void HidePlayerInit()
+        _playerInitPanel.Visible = true;
+        if (!CampaignPlayerInit.TryBind(
+                _document,
+                out CampaignPlayerInit? binding,
+                out string problem))
         {
             _playerInit = null;
-            if (_playerInitPanel != null)
-            {
-                _playerInitPanel.Visible = false;
-            }
+            SetPlayerInitEditable(false);
+            _playerInitPending.Text = "Pending flag: unavailable";
+            _playerInitStatus.Text = problem;
+            return;
         }
 
-        private void SetPlayerInitEditable(bool editable)
+        _playerInit = binding;
+        SetPlayerInitEditable(true);
+        CampaignPlayerInitState state = binding.State;
+        _playerInitPending.Text =
+            $"Pending flag (read-only): {FormatFloat(binding.Pending)}";
+        SetPlayerInitField(PlayerInitField.X, state.X);
+        SetPlayerInitField(PlayerInitField.Y, state.Y);
+        SetPlayerInitField(PlayerInitField.Z, state.Z);
+        SetPlayerInitField(PlayerInitField.Pitch, state.PitchDeg);
+        SetPlayerInitField(PlayerInitField.Yaw, state.YawDeg);
+        SetPlayerInitField(PlayerInitField.Roll, state.RollDeg);
+        SetPlayerInitField(PlayerInitField.Throttle, state.ThrottleFrac);
+        SetPlayerInitField(PlayerInitField.Speed, state.SpeedMps);
+        _playerInitStatus.Text =
+            $"Speed is stored as m/s divided by {FormatFloat(SpawnPoints.SpeedScale)}.";
+    }
+
+    private void HidePlayerInit()
+    {
+        _playerInit = null;
+        if (_playerInitPanel != null)
         {
-            foreach (LineEdit field in _playerInitFields.Values)
-            {
-                field.Editable = editable;
-            }
-
-            _applyPlayerInit.Disabled = !editable;
+            _playerInitPanel.Visible = false;
         }
+    }
 
-        private void SetPlayerInitField(
-            PlayerInitField field,
-            float value) =>
-            _playerInitFields[field].Text = FormatFloat(value);
-
-        private void ApplyPlayerInit()
+    private void SetPlayerInitEditable(bool editable)
+    {
+        foreach (LineEdit field in _playerInitFields.Values)
         {
-            if (_playerInit == null)
-            {
-                return;
-            }
-
-            try
-            {
-                CampaignPlayerInitState state = new(
-                    PlayerInitValue(PlayerInitField.X),
-                    PlayerInitValue(PlayerInitField.Y),
-                    PlayerInitValue(PlayerInitField.Z),
-                    PlayerInitValue(PlayerInitField.Pitch),
-                    PlayerInitValue(PlayerInitField.Yaw),
-                    PlayerInitValue(PlayerInitField.Roll),
-                    PlayerInitValue(PlayerInitField.Throttle),
-                    PlayerInitValue(PlayerInitField.Speed));
-                bool changed = _playerInit.Apply(state);
-                BindPlayerInit();
-                RebuildSelectedReader();
-                UpdateExportState();
-                Success(changed
-                    ? "Updated PLAYER_INIT."
-                    : "PLAYER_INIT is unchanged.");
-            }
-            catch (FormatException e)
-            {
-                _playerInitStatus.Text = e.Message;
-            }
-            catch (ArgumentException e)
-            {
-                _playerInitStatus.Text = e.Message;
-            }
-            catch (InvalidOperationException e)
-            {
-                _playerInitStatus.Text = e.Message;
-                Log.Warn("ui", $"campaign editor: {e.Message}");
-            }
+            field.Editable = editable;
         }
 
-        private float PlayerInitValue(
-            PlayerInitField field)
+        _applyPlayerInit.Disabled = !editable;
+    }
+
+    private void SetPlayerInitField(
+        PlayerInitField field,
+        float value) =>
+        _playerInitFields[field].Text = FormatFloat(value);
+
+    private void ApplyPlayerInit()
+    {
+        if (_playerInit == null)
         {
-            string text = _playerInitFields[field].Text;
-            if (!float.TryParse(
-                    text,
-                    NumberStyles.Float,
-                    CultureInfo.InvariantCulture,
-                    out float value)
-                || !float.IsFinite(value))
-            {
-                throw new FormatException(
-                    $"{field} must be a finite number.");
-            }
-
-            return value;
+            return;
         }
 
-        private void RebuildSelectedReader()
+        try
         {
-            int index = _readerPicker.Selected;
-            if (index >= 0)
-            {
-                RebuildReader(index);
-            }
+            CampaignPlayerInitState state = new(
+                PlayerInitValue(PlayerInitField.X),
+                PlayerInitValue(PlayerInitField.Y),
+                PlayerInitValue(PlayerInitField.Z),
+                PlayerInitValue(PlayerInitField.Pitch),
+                PlayerInitValue(PlayerInitField.Yaw),
+                PlayerInitValue(PlayerInitField.Roll),
+                PlayerInitValue(PlayerInitField.Throttle),
+                PlayerInitValue(PlayerInitField.Speed));
+            bool changed = _playerInit.Apply(state);
+            BindPlayerInit();
+            RebuildSelectedReader();
+            UpdateExportState();
+            Success(changed
+                ? "Updated PLAYER_INIT."
+                : "PLAYER_INIT is unchanged.");
         }
+        catch (FormatException e)
+        {
+            _playerInitStatus.Text = e.Message;
+        }
+        catch (ArgumentException e)
+        {
+            _playerInitStatus.Text = e.Message;
+        }
+        catch (InvalidOperationException e)
+        {
+            _playerInitStatus.Text = e.Message;
+            Log.Warn("ui", $"campaign editor: {e.Message}");
+        }
+    }
+
+    private float PlayerInitValue(
+        PlayerInitField field)
+    {
+        string text = _playerInitFields[field].Text;
+        if (!float.TryParse(
+                text,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out float value)
+            || !float.IsFinite(value))
+        {
+            throw new FormatException(
+                $"{field} must be a finite number.");
+        }
+
+        return value;
+    }
+
+    private void RebuildSelectedReader()
+    {
+        int index = _readerPicker.Selected;
+        if (index >= 0)
+        {
+            RebuildReader(index);
+        }
+    }
 
     private void BuildRosterStartPanel()
     {
@@ -812,6 +852,200 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         return value;
     }
 
+    private void BuildWeatherWindPanel()
+    {
+        _weatherWindPanel = new VBoxContainer
+        {
+            Name = "Wind",
+            Visible = false,
+        };
+        _weatherWindPanel.AddChild(new Label
+        {
+            Text = "Weather wind (WIND)",
+        });
+
+        _weatherWindGrid = new GridContainer
+        {
+            Columns = 2,
+        };
+        AddWeatherWindField(
+            WeatherWindField.StaticX,
+            "Static X (m/s)");
+        AddWeatherWindField(
+            WeatherWindField.StaticY,
+            "Static Y (m/s)");
+        AddWeatherWindField(
+            WeatherWindField.StaticZ,
+            "Static Z (m/s)");
+        AddWeatherWindField(
+            WeatherWindField.RandomMaxSpeed,
+            "Random max speed (m/s)");
+        AddWeatherWindField(
+            WeatherWindField.RandomAccel,
+            "Random acceleration (m/s/s)");
+        AddWeatherWindField(
+            WeatherWindField.RandomAngVel,
+            "Random turn rate (deg/s)");
+        _weatherWindPanel.AddChild(_weatherWindGrid);
+
+        _applyWeatherWind = Button(
+            "Apply weather wind",
+            ApplyWeatherWind);
+        _weatherWindPanel.AddChild(_applyWeatherWind);
+        _weatherWindStatus = new Label
+        {
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        _weatherWindPanel.AddChild(_weatherWindStatus);
+        _typedTabs.AddChild(_weatherWindPanel);
+    }
+
+    private void AddWeatherWindField(
+        WeatherWindField field,
+        string label)
+    {
+        _weatherWindGrid.AddChild(new Label
+        {
+            Text = label,
+        });
+        LineEdit edit = new()
+        {
+            Name = field.ToString(),
+        };
+        _weatherWindFields.Add(field, edit);
+        _weatherWindGrid.AddChild(edit);
+    }
+
+    private void BindWeatherWind()
+    {
+        if (_document == null)
+        {
+            HideWeatherWind();
+            return;
+        }
+
+        _weatherWindPanel.Visible = true;
+        if (!CampaignWeatherWind.TryBind(
+                _document,
+                out CampaignWeatherWind? binding,
+                out string problem))
+        {
+            _weatherWind = null;
+            SetWeatherWindEditable(false);
+            _weatherWindStatus.Text = problem;
+            return;
+        }
+
+        _weatherWind = binding;
+        SetWeatherWindEditable(true);
+        CampaignWeatherWindState state =
+            binding.State;
+        SetWeatherWindField(
+            WeatherWindField.StaticX,
+            state.StaticX);
+        SetWeatherWindField(
+            WeatherWindField.StaticY,
+            state.StaticY);
+        SetWeatherWindField(
+            WeatherWindField.StaticZ,
+            state.StaticZ);
+        SetWeatherWindField(
+            WeatherWindField.RandomMaxSpeed,
+            state.RandomMaxSpeed);
+        SetWeatherWindField(
+            WeatherWindField.RandomAccel,
+            state.RandomAccel);
+        SetWeatherWindField(
+            WeatherWindField.RandomAngVel,
+            state.RandomAngVelDeg);
+        _weatherWindStatus.Text =
+            "Wind affects puffer particles; cloud clutter does not currently consume it.";
+    }
+
+    private void HideWeatherWind()
+    {
+        _weatherWind = null;
+        if (_weatherWindPanel != null)
+        {
+            _weatherWindPanel.Visible = false;
+        }
+    }
+
+    private void SetWeatherWindEditable(bool editable)
+    {
+        foreach (LineEdit field in _weatherWindFields.Values)
+        {
+            field.Editable = editable;
+        }
+
+        _applyWeatherWind.Disabled = !editable;
+    }
+
+    private void SetWeatherWindField(
+        WeatherWindField field,
+        float value) =>
+        _weatherWindFields[field].Text =
+            FormatFloat(value);
+
+    private void ApplyWeatherWind()
+    {
+        if (_weatherWind == null)
+        {
+            return;
+        }
+
+        try
+        {
+            CampaignWeatherWindState state = new(
+                WeatherWindValue(WeatherWindField.StaticX),
+                WeatherWindValue(WeatherWindField.StaticY),
+                WeatherWindValue(WeatherWindField.StaticZ),
+                WeatherWindValue(WeatherWindField.RandomMaxSpeed),
+                WeatherWindValue(WeatherWindField.RandomAccel),
+                WeatherWindValue(WeatherWindField.RandomAngVel));
+            bool changed =
+                _weatherWind.Apply(state);
+            BindWeatherWind();
+            RebuildSelectedReader();
+            UpdateExportState();
+            Success(changed
+                ? "Updated weather WIND."
+                : "Weather WIND is unchanged.");
+        }
+        catch (FormatException e)
+        {
+            _weatherWindStatus.Text = e.Message;
+        }
+        catch (ArgumentException e)
+        {
+            _weatherWindStatus.Text = e.Message;
+        }
+        catch (InvalidOperationException e)
+        {
+            _weatherWindStatus.Text = e.Message;
+            Log.Warn("ui", $"campaign editor: {e.Message}");
+        }
+    }
+
+    private float WeatherWindValue(
+        WeatherWindField field)
+    {
+        string text =
+            _weatherWindFields[field].Text;
+        if (!float.TryParse(
+                text,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out float value)
+            || !float.IsFinite(value))
+        {
+            throw new FormatException(
+                $"{field} must be a finite number.");
+        }
+
+        return value;
+    }
+
     private void AddValue(
         TreeItem parent,
         List<int> path,
@@ -866,7 +1100,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         }
     }
 
-    private static void Editable(
+    private void Editable(
         TreeItem item,
         List<int> path,
         string type,
@@ -932,6 +1166,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
             {
                 BindPlayerInit();
                 BindRosterStarts();
+                BindWeatherWind();
                 Success(
                     $"Edited {_document.Files[fileIndex].Key} [{PathText(path)}].");
             }
@@ -997,6 +1232,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         _typedTabs.Visible = false;
         HidePlayerInit();
         HideRosterStarts();
+        HideWeatherWind();
         _readerPicker.Clear();
         _readerPicker.Disabled = true;
         _readerTree.Clear();
@@ -1018,7 +1254,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
     private void OpenModDialog() =>
         OpenDialog(_modDialog, _modPath.Text);
 
-    private static void OpenDialog(
+    private void OpenDialog(
         FileDialog dialog,
         string current)
     {
@@ -1036,7 +1272,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         dialog.PopupCentered(new Vector2I(900, 650));
     }
 
-    private static FileDialog Picker(
+    private FileDialog Picker(
         string title,
         bool foldersOnly) =>
         new()
@@ -1060,7 +1296,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
             ShowHiddenFiles = !OperatingSystem.IsWindows(),
         };
 
-    private static Button Button(
+    private Button Button(
         string text,
         Action pressed)
     {
@@ -1073,7 +1309,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         return button;
     }
 
-    private static int[] ParsePath(string text)
+    private int[] ParsePath(string text)
     {
         string[] parts = text.Split(
             ',',
@@ -1090,7 +1326,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         return path;
     }
 
-    private static string PathText(
+    private string PathText(
         IReadOnlyList<int> path)
     {
         var parts = new string[path.Count];
@@ -1102,7 +1338,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         return string.Join(",", parts);
     }
 
-    private static void RestoreLeaf(
+    private void RestoreLeaf(
         TreeItem item,
         object? value)
     {
@@ -1113,7 +1349,7 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
                 : value?.ToString() ?? "null");
     }
 
-    private static string FormatFloat(float value) =>
+    private string FormatFloat(float value) =>
         value.ToString("R", CultureInfo.InvariantCulture);
 
     private void Success(string message)
@@ -1133,25 +1369,4 @@ internal sealed partial class CampaignMissionEditorDock : VBoxContainer
         Log.Warn("ui", $"campaign editor: {detail}");
     }
 
-    private enum PlayerInitField
-    {
-        X,
-        Y,
-        Z,
-        Pitch,
-        Yaw,
-        Roll,
-        Throttle,
-        Speed,
-    }
-
-    private enum RosterStartField
-    {
-        X,
-        Y,
-        Z,
-        Yaw,
-        Team,
-        Group,
-    }
 }

@@ -9,8 +9,8 @@ references remain on the linked family pages.
 
 The format facts cover the 24 story missions in the English retail data. The Godot project
 includes the lossless raw document, scalar editing, complete-scope export, and a typed
-`PLAYER_INIT` panel plus typed `aiv.zrd` roster starts. Other typed fields, dependency diagnostics,
-and the world preview remain the next authoring layer.
+`PLAYER_INIT` panel, typed `aiv.zrd` roster starts, and typed `weather.zrd` wind controls. Other
+typed fields, dependency diagnostics, and the world preview remain the next authoring layer.
 
 ## Contents
 
@@ -34,8 +34,8 @@ and the world preview remain the next authoring layer.
 | Where should an editor save? | A local external modding folder, normally `<mod>\<chapter>\<mission>\zrdr.zip`, with every retained reader stored as `*.zrd.json`. The generated full scope is not a distributable artifact. |
 | What should remain read-only first? | The chapter world, shared and chapter reader scopes, setup scripts, and compiled animation archives. They have wider effects or no current writer. |
 | Can the retail archive be overwritten? | No. CSVM reads extracted JSON from a modding folder; it has no `zrdr.zbd` writer, and the retail game does not read this override format. |
-| What can the editor change now? | Existing string and float leaves in any mission reader; typed `PLAYER_INIT` position, authored attitude, throttle, and speed; and each complete `aiv.zrd` block's position, yaw, team, and group. Lists, nulls, file membership, wider scopes, and compiled data remain read-only. |
-| Does the project include a Godot editor plugin? | Yes. The enabled **Campaign Missions** dock loads a user-owned install or disc image, selects one of the 24 missions, exposes its raw tree and typed start tabs, and exports the complete mission scope. |
+| What can the editor change now? | Existing string and float leaves in any mission reader; typed `PLAYER_INIT` position, authored attitude, throttle, and speed; each complete `aiv.zrd` block's position, yaw, team, and group; and `weather.zrd`'s static and random-walk wind fields. Lists, nulls, file membership, wider scopes, and compiled data remain read-only. |
+| Does the project include a Godot editor plugin? | Yes. The enabled **Campaign Missions** dock loads a user-owned install or disc image, selects one of the 24 missions, exposes its raw tree and typed start and wind tabs, and exports the complete mission scope. |
 
 ## Conceptual model
 
@@ -274,6 +274,11 @@ It also binds the last `PLAYER_INIT` occurrence, matching `ZrdrDict`'s consumer 
 exact raw path of each typed field. A missing, bare, truncated, or non-float record disables the
 panel with a diagnostic instead of constructing defaults.
 
+The wind tab follows `WeatherState.Load` at both parsing layers. It binds the last list-valued
+`WIND` block selected by the outer alternating dictionary, then the first valid immediate value
+for each bare-scalar field inside that block. Applying it writes those exact indexes and leaves
+duplicate fields, unknown fields, and every other weather block untouched.
+
 | Surface | Godot view | Typed behavior |
 |---|---|---|
 | `PLAYER_INIT` | Implemented numeric panel; player camera or aircraft handle remains planned | Edit position in metres, the full authored pitch/yaw/roll triple in degrees, throttle as a 0 to 1 fraction, and speed in metres per second. The raw speed field is the displayed speed divided by 0.1. The pending flag is visible and read-only. CSVM currently applies only yaw, but pitch and roll remain preserved and editable. |
@@ -284,7 +289,7 @@ panel with a diagnostic instead of constructing defaults.
 | `dzones.zrd` | Read-only gamez gate ribbons with enable, objective, and snapshot controls | Edit mission overrides, not gate geometry. |
 | `targets.zrd` | Node-selection and message-key table | Edit starting flags and labels. Offer an explicit mission-local copy when a mission inherits the chapter table. |
 | `objectives.zrd` | Ordered objective list or graph plus directive inspector | Preserve contiguous numbering, raw directive order, unknown directives, and target paths. |
-| `weather.zrd` | Environment controls and zone preview | Edit typed atmospheric values while retaining unknown blocks. |
+| `weather.zrd` | Implemented numeric wind tab; cloud, precipitation, per-zone light and fog, and zone preview remain planned | Edit `STATIC_VELOCITY`, `RANDOM_MAX_SPEED`, `RANDOM_ACCEL`, and `RANDOM_ANG_VEL` in their runtime units. Random speed, acceleration, and turn rate must be finite and non-negative. Unknown fields and every non-`WIND` block remain raw. |
 | `startanims.zrd` | Ordered name list | Select and reorder existing animation names. |
 | `map.zrd`, `net.zrd`, animation readers | Raw tree or read-only typed summary | Preserve without promising a visible campaign effect. |
 | `.gw`, gamez, chapter readers, compiled anims | Read-only dependency browser | Show what controls a value and where a wider-scope edit would belong. |
@@ -335,7 +340,9 @@ cleanup, and reopen verification. `CampaignPlayerInit` tests cover last-duplicat
 malformed records, exact raw-leaf edits, validation before mutation, and agreement with
 `SpawnPoints.LoadPlayerInit`. `CampaignRosterStarts` tests cover variable-width tails, malformed
 prefixes, exact raw-leaf edits, validation before mutation, and agreement with the `AiSkills`
-roster accessors. A real campaign launch remains required.
+roster accessors. `CampaignWeatherWind` tests cover outer duplicate selection, first-valid
+bare-field selection, malformed records, exact raw-leaf edits, validation before mutation, and
+agreement with `WeatherState.Load`. A real campaign launch remains required.
 
 ## Evidence & limits
 
@@ -350,11 +357,12 @@ replacement; the test's one-file mission override has its edited `pickups.zrd` a
 `objectives.zrd`. `CampaignMissionDocument.cs` owns raw edits, complete-scope JSON ZIP output, and
 reopen comparison. `CampaignPlayerInit.cs` owns the exact-index typed player-start view and its
 speed conversion. `CampaignRosterStarts.cs` owns exact-index roster-start views.
-`CampaignMissionEditorPlugin.cs` owns the Godot dock. `AnimProgram.cs` establishes compiled-first
-animation precedence.
+`CampaignWeatherWind.cs` owns the exact-index typed wind view and follows `WeatherState.Load`'s
+alternating-list lookup. `CampaignMissionEditorPlugin.cs` owns the Godot dock. `AnimProgram.cs`
+establishes compiled-first animation precedence.
 
 The editor targets CSVM's external modding path only. It does not define a binary writer for the
 original game, compiled animation authoring, chapter-world editing, a shared-scope campaign
-rewrite, typed mission fields beyond `PLAYER_INIT` and the `aiv.zrd` spawn prefix, dependency
-diagnostics, world preview, mod-scope import, or editor undo. The census covers one English retail
-data set.
+rewrite, typed mission fields beyond `PLAYER_INIT`, the `aiv.zrd` spawn prefix, and the
+`weather.zrd` `WIND` block, dependency diagnostics, world preview, mod-scope import, or editor
+undo. The census covers one English retail data set.

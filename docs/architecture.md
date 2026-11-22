@@ -796,9 +796,11 @@ to dispatch `--run-tests`.
 - `src/Tooling/ShaderDiagnostics.cs`, `--debug-shaders`: the shader census, the frames after a live switch and every frame over 33 ms.
 - `src/Tooling/CaptureDirector.cs`, the `--screenshot=`/`--shots=`/`--frames=` capture state machine, F11's camera-pose print and F12's save, ticked from `_Process`.
 - `src/Tooling/GltfExporter.cs`, exports the viewer plane subtree to glTF (mesh + livery + baked damage) and its `cockpit1` interior beside it for `--export-gltf=`/F10, on a throwaway duplicate.
+- `src/Tooling/CampaignRawList.cs`, the shared exact-index lookup over alternating key/list reader data.
 - `src/Tooling/CampaignMissionDocument.cs`, one campaign mission's lossless raw reader document and verified complete-scope ZIP export.
 - `src/Tooling/CampaignPlayerInit.cs`, the exact-index typed view that edits a mission's complete `PLAYER_INIT` record without rebuilding its raw objectives tree.
 - `src/Tooling/CampaignRosterStarts.cs`, exact-index typed views over each `aiv.zrd` block's spawn position, yaw, team and mission-logic group.
+- `src/Tooling/CampaignWeatherWind.cs`, the exact-index typed view over `weather.zrd`'s static and random-walk wind fields.
 - `src/Tooling/CampaignMissionEditorPlugin.cs`, the Godot editor dock for loading, inspecting, editing and exporting campaign mission reader scopes.
 - `src/Tooling/SyntheticData.cs`, `--synthetic-data`: writes an invented `extracted/` tree (the Original shell's files) into scratch, marked synthetic.
 - `src/Tooling/SyntheticTextures.cs`, the synthetic run's C1 texture archive, built in memory: one checker record per entry.

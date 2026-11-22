@@ -4,11 +4,21 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace CSVM.Tooling;
 
+/// <summary>The editable values of one <c>aiv.zrd</c> roster start.</summary>
+public readonly record struct CampaignRosterStartState(
+    float X,
+    float Y,
+    float Z,
+    float YawDeg,
+    int Team,
+    int Group);
+
 /// <summary>The exact-index typed views over one mission's <c>aiv.zrd</c> roster starts.</summary>
 public sealed class CampaignRosterStarts
 {
-    private const string ReaderName = "aiv.json";
     internal const int MaxExactInteger = 16_777_216;
+
+    private const string ReaderName = "aiv.json";
 
     private readonly List<CampaignRosterStart> _entries;
 
@@ -266,12 +276,3 @@ public sealed class CampaignRosterStart
             new[] { _rootIndex, 1, 1, component },
             value);
 }
-
-/// <summary>The editable values of one <c>aiv.zrd</c> roster start.</summary>
-public readonly record struct CampaignRosterStartState(
-    float X,
-    float Y,
-    float Z,
-    float YawDeg,
-    int Team,
-    int Group);

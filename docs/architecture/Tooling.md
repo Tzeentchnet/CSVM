@@ -87,6 +87,11 @@ materials take their gamez and texture names past the writer's renaming, so a mo
 destructible's states reach the file. `.glb` by default. `ExportSet` writes several subtrees under one root at world transforms; `Export*ToExports` names a timestamped `Exports/` GLB, the writer `--export-gltf=`, F10 and NodeLab's export actions share.
 A plane's mounted `cockpit1` (`PlaneBuilder`'s direct child) never rides in its file; given `cockpitPath`, it is written there all states, root at identity, in interior units (`CockpitPathBeside`; F10 suffixes `_cockpit1`). An untextured `lighting: false` skin (`DrawsUnlit`) is written `KHR_materials_unlit`.
 
+## src/Tooling/CampaignRawList.cs
+The shared exact-index lookup over raw alternating reader lists. It mirrors `ZrdrDict`'s
+last-duplicate and bare-key behavior while retaining the selected value index for typed editors.
+`CampaignPlayerInit.cs` and `CampaignWeatherWind.cs` are its current consumers.
+
 ## src/Tooling/CampaignMissionDocument.cs
 One story mission's complete raw `ZrdrFile` set as an editable document. It deep-copies the source,
 permits type-preserving string and float leaf edits, and exports every reader in source order to
@@ -108,11 +113,18 @@ enabled/template state, names, net ids and every trailing field remain raw. The 
 block is identified separately because campaign placement reads `PLAYER_INIT`. Read
 `Mech3/AiSkills.cs` for the runtime interpretation.
 
+## src/Tooling/CampaignWeatherWind.cs
+The exact-index typed view over `weather.zrd`'s bare-scalar `WIND` block. It follows the outer
+alternating dictionary's last-duplicate selection, then binds the first complete immediate value
+for static velocity, random maximum speed, random acceleration and random turn rate, matching
+`Effects/Weather.cs`. Writes preserve duplicate and unknown fields and every other weather block.
+
 ## src/Tooling/CampaignMissionEditorPlugin.cs
 The enabled Godot editor dock over `CampaignMissionDocument`: source and mod-folder pickers, the 24
-campaign rows, one reader's raw tree, editable scalar cells, and typed player-start and roster-start
-tabs. It opens folders and disc images through `GameFileSource`, so the editor and a flight decode
-the same bytes. Structure, nulls, other typed panels and world preview remain outside this dock.
+campaign rows, one reader's raw tree, editable scalar cells, and typed player-start, roster-start
+and weather-wind tabs. It opens folders and disc images through `GameFileSource`, so the editor and
+a flight decode the same bytes. Structure, nulls, other typed panels and world preview remain
+outside this dock.
 Format and workflow:
 [../formats/missions/campaign-authoring.md](../formats/missions/campaign-authoring.md).
 
