@@ -213,7 +213,7 @@ GODOT --path CSVM res://scenes/Main.tscn -- --plane=player_bhawk
 - `src/Video/`, the managed MPEG-1 decoder for the install's `.mpg` cinemas: system-stream demux, video decode, frames as pixel buffers. Holds no engine type.
 - `src/Utils/`, session-wide services: clock, log, seed, shader time, config, startup profile, options, graphics mode. Determinism lives here.
 - `src/Testing/`, the in-engine assertion harness behind `--run-tests`: the suites, their registry and fixtures. Nothing outside it depends on it except the `--run-tests` dispatch.
-- `src/Tooling/`, runtime tooling the game and the harness share: the `--dump-*` probes and their wrappers, the `--screenshot`/`--shots` capture, the golden-image hash, the glTF export.
+- `src/Tooling/`, runtime and editor tooling: scripted probes, captures, glTF export, synthetic data and the campaign mission editor.
 - `src/Bindings/`, the input binding model and the named-action seam: device identity, the tagged control, the binding list an action resolves through, the registry that resolves a device identity to a live pad, the seat device state a polling site reads its pad set through, a player's action map resolved once per tick, and the shipped default keymap with its versioned per-player file.
 - `src/Sticks/`, flight sticks Godot does not enumerate, read through the pinned `SDL2.dll`: the gap-filling stick roster, its hot-plug and input gate, the per-frame pump, the per-model profile files and the generic single-stick default.
 - `src/Launch/`, the composition root: `Launcher.cs`, the Main.tscn root, and `GameSession.cs`, the per-launch session node it instantiates.

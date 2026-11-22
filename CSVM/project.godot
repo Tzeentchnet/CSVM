@@ -25,6 +25,10 @@ window/size/no_focus.template=false
 
 project/assembly_name="CSVM"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/campaign_mission_editor/plugin.cfg")
+
 [gui]
 
 ; Mipmaps on the theme font, for the separate render thread below rather than for looks: canvas text

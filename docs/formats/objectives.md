@@ -72,7 +72,7 @@ completions resolve over consecutive frames in rotating order.
 | Key | Args | Semantics (all traced in `FUN_00466b70` unless noted) |
 |---|---|---|
 | `MISSION_TIMER` | `[seconds]`, optional `"NOLOSS"` | Sets the mission countdown clock's initial value. The clock is idle until something starts it (see `RESET_TIMER` below); when running, its expiry ends the mission with a 3 s wrap-up delay and an on-screen notice (`FUN_0046a490` head, message rows 6002 `MSG_TIME_EXPIRED` and 137 `MSG_MISSION_LOST`). With `NOLOSS` the clock pins at 0 instead of expiring (`FUN_0046c640`). Every shipped file authors `0.0`, so the clock only matters where an objective adjusts it. |
-| `PLAYER_INIT` | `[int, [x,y,z], [pitch,yaw,roll], float, float]` | Player start block. Position is meters; the rotation triple is degrees, stored premultiplied by 0.017453292 (radians). The leading int, the fourth value (0.8 in every file) and the fifth (stored x0.1) are parsed to mission record +0x6c0..+0x6e0; **their consumer is untraced**, so what the last two mean at spawn is a named gap. |
+| `PLAYER_INIT` | `[int, [x,y,z], [pitch,yaw,roll], float, float]` | Player start block. Position is metres and the rotation triple is authored in degrees, then converted to radians in the mission record. The leading value is a pending flag tested once and cleared when the spawn is applied. The fourth value supplies opening throttle verbatim. The fifth is multiplied by 0.1 into metres per second (`FUN_00467800`, multiply at `0x0046788b`). CSVM currently applies position and yaw while preserving the authored pitch and roll; see [Player and vehicle spawns](spawns.md). |
 | `RESTORE_ANIMS`, `EXECUTE_ANIMS`, `INVALIDATE_ANIMS` | list | Three animation lists. **Authored `null` in all 51 files that carry them**, so the campaign never exercises them. The parser accepts plain anim names and a `[node, "prefix#"]` wildcard form (`#` matches the numeric tail, resolved against the node's own anim list); the `EXECUTE` list is run at load. |
 | `PRIMARY/SECONDARY/TERTIARY_COMPLETE_SOUND` | `[group]` | Sound group played whenever an objective of that `IDENTITY` class completes. Authored once (C1/M02) with the placeholder `your_sound_here`, which resolves to no group. |
 | `MISSION_WON_SOUND`, `MISSION_LOST_SOUND` | `[group]` | Played when the mission-end flag is set won/lost (`FUN_00463c30`). Same single placeholder authoring. |
@@ -583,8 +583,7 @@ display readers `FUN_004acc20` / `FUN_004ad240` / `FUN_004a2350`, and the danger
 `FUN_00446990`. Census over all 53 files ran against the extracted JSON in this repo's
 `extracted\` tree.
 
-Named gaps, each marked at its point of use: the consumers of `PLAYER_INIT`'s first, fourth
-and fifth values; `WIN_ANIM` /
+Named gaps, each marked at its point of use: `WIN_ANIM` /
 `LOSS_ANIM`'s consumer; and the radio queue's internal mode/delay parameters
 (`FUN_0046caf0`), whose pre/in/won-battle special routing is decoded but whose exact fade
 behaviour is not.

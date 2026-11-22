@@ -7,8 +7,10 @@ scopes, a chapter world, two compiled animation archives, and one per-mission en
 This page maps that bundle and defines a safe authoring boundary for a Godot editor. Detailed field
 references remain on the linked family pages.
 
-The format facts cover the 24 story missions in the English retail data. The Godot workflow is a
-design for a future editor, not a feature present in the project.
+The format facts cover the 24 story missions in the English retail data. The Godot project
+includes the lossless raw document, scalar editing, complete-scope export, and a typed
+`PLAYER_INIT` panel plus typed `aiv.zrd` roster starts. Other typed fields, dependency diagnostics,
+and the world preview remain the next authoring layer.
 
 ## Contents
 
@@ -32,7 +34,8 @@ design for a future editor, not a feature present in the project.
 | Where should an editor save? | A local external modding folder, normally `<mod>\<chapter>\<mission>\zrdr.zip`, with every retained reader stored as `*.zrd.json`. The generated full scope is not a distributable artifact. |
 | What should remain read-only first? | The chapter world, shared and chapter reader scopes, setup scripts, and compiled animation archives. They have wider effects or no current writer. |
 | Can the retail archive be overwritten? | No. CSVM reads extracted JSON from a modding folder; it has no `zrdr.zbd` writer, and the retail game does not read this override format. |
-| Does the project include a Godot editor plugin? | No. The project has no `EditorPlugin`, `[Tool]` script, registered addon, or mission serializer. |
+| What can the editor change now? | Existing string and float leaves in any mission reader; typed `PLAYER_INIT` position, authored attitude, throttle, and speed; and each complete `aiv.zrd` block's position, yaw, team, and group. Lists, nulls, file membership, wider scopes, and compiled data remain read-only. |
+| Does the project include a Godot editor plugin? | Yes. The enabled **Campaign Missions** dock loads a user-owned install or disc image, selects one of the 24 missions, exposes its raw tree and typed start tabs, and exports the complete mission scope. |
 
 ## Conceptual model
 
@@ -174,6 +177,8 @@ lists, and nulls:
   the retail reader used.
 - An empty nested binary list becomes null. Treating null as an empty `Godot.Collections.Array`
   changes the extracted representation even where a consumer gives both the same meaning.
+- An empty top-level reader writes as JSON `null`, matching the extracted form. An empty JSON array
+  also reads as an empty root, but the writer does not introduce that second spelling.
 
 The binary reader keeps archive table order. A generated ZIP can retain that order explicitly;
 directory enumeration does not promise it. A tool should therefore write `zrdr.zip` in the source
@@ -204,17 +209,27 @@ alone.
 
 ## Godot editor workflow
 
+The project enables `addons/campaign_mission_editor/plugin.cfg`. Open the `CSVM` project in the
+Godot 4.7 .NET editor and use the **Campaign Missions** dock. Its source picker accepts the same
+install folders, discs, `.iso` files, and raw-disc descriptors as a game launch. The mod-folder
+picker names an external output root; export is refused under either the source or the checkout.
+
 ### Document model
 
 The Godot scene should be a view of a plain C# mission document, not the source of truth:
 
 | Layer | Responsibility |
 |---|---|
-| `MissionDocument` | Holds the campaign address, every mission `ZrdrFile` in source order, and read-only references to the shared and chapter inputs. |
+| `CampaignMissionDocument` | Holds the campaign address and a deep copy of every mission `ZrdrFile` in source order. Its exporter owns complete-scope output and round-trip verification. |
 | Raw reader model | Keeps each `List<object?>` tree exactly, including unknown and duplicate entries. |
-| Typed adapters | Expose objectives, roster blocks, weather, targets, entities, and spawn records while retaining the raw index for every editable field. |
+| Typed adapters | `CampaignPlayerInit` exposes the complete player start. `CampaignRosterStarts` exposes each complete roster spawn prefix without assuming a fixed-width block. Both retain exact raw indexes. Future adapters use the same boundary for objectives, remaining roster fields, weather, targets, and entities. |
 | Preview nodes | Derived `Node3D` handles and overlays rebuilt from typed values. They are not saved as `.tscn` or `.tres` mission data. |
 | Diagnostics | Resolves world nodes, messages, AI nets, animation names, and cross-reader references continuously. |
+
+`CampaignMissionDocument`, the raw-tree dock, and the two start adapters are present. Preview
+nodes, continuous diagnostics, and the other typed adapters are not. The dock changes an existing
+string or finite float only when the replacement has the same type; it cannot add, remove,
+reorder, or reinterpret a value.
 
 Godot resources are useful for editor UI state, but they should not replace the raw reader model.
 A heterogeneous reader tree contains representations that an exported inspector property does not
@@ -222,21 +237,26 @@ retain reliably, including duplicate keys, null nested lists, and unknown list s
 
 Undo and redo should apply a typed edit to one raw-tree location, then rebuild the affected preview
 and diagnostics. Reconstructing the whole reader from typed fields would discard data the panel
-does not understand.
+does not understand. Raw scalar edits do not yet participate in the Godot editor's undo history.
 
 ### Import
 
 1. Let the user choose their own install or disc image and an external modding folder. Do not copy
    retail data into the repository.
 2. Load shared `cm_sequence.zrd` and select a `CM` ordinal or storage address.
-3. Decode the complete retail mission reader scope with `ZrdrSet.Load`. If an existing mod scope is
-   opened, treat it as complete because that is how the runtime reads it.
+3. Decode the complete retail mission reader scope with `ZrdrSet.Load`.
 4. Load the chapter world, textures, chapter readers, animation archives, messages, and setup
    script as read-only dependencies.
 5. Build typed adapters over deep copies of the raw mission readers. Keep source names and entry
    order beside them.
 6. Build the preview only after the `.gw` setup has selected the mission's world state. Startup
    animation playback is optional, but its names and references can still be validated.
+
+The dock performs steps 1 through 3, deep-copies the selected scope, and builds the typed
+`PLAYER_INIT` and roster-start adapters from that copy. Read-only dependency loading, the other
+typed adapters, and preview construction remain unimplemented. Opening an existing mod scope is
+also not exposed yet. When it is, that scope must be treated as complete because that is how the
+runtime reads it.
 
 Imported or generated retail-derived data remains in memory or under the selected external
 modding folder. It does not belong under `CSVM/`, `docs/`, or a committed Godot resource.
@@ -248,10 +268,16 @@ product and must not be committed or published.
 
 ### Editor surfaces
 
-| Surface | Godot view | First-version behavior |
+The current dock gives every reader the same raw tree. Existing string and float cells are
+editable; list structure, nulls, file membership, and unsupported JSON value types are read-only.
+It also binds the last `PLAYER_INIT` occurrence, matching `ZrdrDict`'s consumer view, and keeps the
+exact raw path of each typed field. A missing, bare, truncated, or non-float record disables the
+panel with a diagnostic instead of constructing defaults.
+
+| Surface | Godot view | Typed behavior |
 |---|---|---|
-| `PLAYER_INIT` | Player camera or aircraft handle | Move and rotate the campaign start; edit throttle and speed in an inspector. Only yaw currently affects the CSVM spawn. |
-| `aiv.zrd` | Aircraft handles with team/group labels and optional chapter-net paths | Move roster starts, edit yaw and typed roster fields, and validate vehicle definitions and net ids. |
+| `PLAYER_INIT` | Implemented numeric panel; player camera or aircraft handle remains planned | Edit position in metres, the full authored pitch/yaw/roll triple in degrees, throttle as a 0 to 1 fraction, and speed in metres per second. The raw speed field is the displayed speed divided by 0.1. The pending flag is visible and read-only. CSVM currently applies only yaw, but pitch and roll remain preserved and editable. |
+| `aiv.zrd` | Implemented roster-entry selector and numeric start tab; aircraft handles and chapter-net paths remain planned | Edit position, yaw, team, and mission-logic group when every block carries the complete six-slot prefix. Names, net ids, enabled/template flags, and variable-width tails remain raw. The `player` block is read-only because `PLAYER_INIT` places the human aircraft. Vehicle-definition and net validation remain planned. |
 | `zeppelins.zrd` | Zeppelin handles attached to existing world nodes | Edit position, yaw, pitch, motion limits, teams, targets, and damage records. |
 | `egen.zrd` | Host and origin overlays on existing nodes | Edit generator timing and references. The host remains a gamez node rather than a freely placed generator object. |
 | `location.zrd` | Named point handles | Preserve and edit the cockpit-map points even while the current flight UI has no authoring panel for them. |
@@ -263,13 +289,20 @@ product and must not be committed or published.
 | `map.zrd`, `net.zrd`, animation readers | Raw tree or read-only typed summary | Preserve without promising a visible campaign effect. |
 | `.gw`, gamez, chapter readers, compiled anims | Read-only dependency browser | Show what controls a value and where a wider-scope edit would belong. |
 
+Applying an unchanged displayed speed does not recalculate its raw field. This preserves authored
+float bits even when multiplying by 0.1 underflows or cannot round-trip through the displayed
+metres-per-second value.
+
 ### Export
 
+`CampaignMissionDocument` performs steps 1 through 3 below and enforces the local-output boundary
+in step 6. Steps 4 and 5 remain validation and launch work.
+
 1. Serialize the complete mission reader scope as nested JSON arrays. Retain every unedited file
-   and every unedited raw subtree.
+   and every unedited raw subtree. Write an empty top-level reader as JSON `null`.
 2. Write a temporary `<mod>\<chapter>\<mission>\zrdr.zip` with entries in source order, then
    replace the destination atomically. Refuse to overwrite a preferred unpacked `zrdr\` sibling
-   unless the user explicitly chooses which output owns the scope.
+   because ownership selection is not implemented.
 3. Reopen the generated archive with `ZrdrSet.FromExtracted` and compare names, tree shapes,
    values, nulls, order, and float bits against the in-memory document.
 4. Run each typed reader used by the edited surfaces and report every failure before offering a
@@ -295,6 +328,15 @@ A mission editor is ready to save only when all of these checks pass:
 The no-edit round trip is the primary safety test. A typed panel that looks correct but rewrites
 unknown data is not a lossless editor.
 
+The engine-free unit surface uses invented reader trees to cover deep-copy isolation,
+type-preserving scalar edits, complete entry order, duplicate-name renames, empty-reader `null`,
+negative zero, a subnormal float, unpacked-scope refusal, external-output guards, temporary-file
+cleanup, and reopen verification. `CampaignPlayerInit` tests cover last-duplicate selection,
+malformed records, exact raw-leaf edits, validation before mutation, and agreement with
+`SpawnPoints.LoadPlayerInit`. `CampaignRosterStarts` tests cover variable-width tails, malformed
+prefixes, exact raw-leaf edits, validation before mutation, and agreement with the `AiSkills`
+roster accessors. A real campaign launch remains required.
+
 ## Evidence & limits
 
 The archive census comes from `CampaignSequence.Load` over the shared reader followed by
@@ -305,9 +347,14 @@ presence only, not retail payloads.
 `ZrdrZbd.cs` establishes the binary value model and table order. `Zrdr.cs` establishes the
 accepted `*.zrd.json` mod names. `GameData.cs` and `ModdingFolderTests.cs` establish whole-archive
 replacement; the test's one-file mission override has its edited `pickups.zrd` and no
-`objectives.zrd`. `AnimProgram.cs` establishes compiled-first animation precedence.
+`objectives.zrd`. `CampaignMissionDocument.cs` owns raw edits, complete-scope JSON ZIP output, and
+reopen comparison. `CampaignPlayerInit.cs` owns the exact-index typed player-start view and its
+speed conversion. `CampaignRosterStarts.cs` owns exact-index roster-start views.
+`CampaignMissionEditorPlugin.cs` owns the Godot dock. `AnimProgram.cs` establishes compiled-first
+animation precedence.
 
-The current tree contains readers and typed consumers but no ZRDR serializer or Godot editor
-plugin. The proposed workflow targets CSVM's external modding path only. It does not define a
-binary writer for the original game, compiled animation authoring, chapter-world editing, or a
-shared-scope campaign rewrite. The census covers one English retail data set.
+The editor targets CSVM's external modding path only. It does not define a binary writer for the
+original game, compiled animation authoring, chapter-world editing, a shared-scope campaign
+rewrite, typed mission fields beyond `PLAYER_INIT` and the `aiv.zrd` spawn prefix, dependency
+diagnostics, world preview, mod-scope import, or editor undo. The census covers one English retail
+data set.

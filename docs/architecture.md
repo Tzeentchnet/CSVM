@@ -782,10 +782,11 @@ determinism repo-wide; read `docs/verification.md` first.
 - `src/Testing/SuiteConstants.cs` / `BurstTimeline.cs` / `SuiteViewers.cs` / `EffectStageSuiteHelper.cs` / `BotSuiteHelper.cs` / `CourseFlight.cs`, shared golden inputs, timeline values and fixtures.
 - `src/Testing/MenuSuiteHost.cs`, what a menu suite's host is built from: the launcher's features, silent audio and the suite's scratch stores.
 
-### `src/Tooling/`, runtime tooling the game and the harness share
+### `src/Tooling/`, runtime and editor tooling
 
-The `--dump-*` probes, the capture loop, the golden-image hash, the glTF export and the
-`--synthetic-data` tree. The game and `src/Testing/` both depend on it; it reaches into the harness only to dispatch `--run-tests`.
+The `--dump-*` probes, capture loop, golden-image hash, glTF export, synthetic-data tree and Godot
+editor extensions. The game and `src/Testing/` both depend on it; it reaches into the harness only
+to dispatch `--run-tests`.
 
 - `src/Tooling/Probes.cs`, the assertion cores behind the `--dump-*` reports: one pass yields the report text and the verdict a suite asserts on.
 - `src/Tooling/EnvelopeMargins.cs`, one flight scenario's distance from every term that could bound it, plus the decoded branches it drove.
@@ -795,6 +796,10 @@ The `--dump-*` probes, the capture loop, the golden-image hash, the glTF export 
 - `src/Tooling/ShaderDiagnostics.cs`, `--debug-shaders`: the shader census, the frames after a live switch and every frame over 33 ms.
 - `src/Tooling/CaptureDirector.cs`, the `--screenshot=`/`--shots=`/`--frames=` capture state machine, F11's camera-pose print and F12's save, ticked from `_Process`.
 - `src/Tooling/GltfExporter.cs`, exports the viewer plane subtree to glTF (mesh + livery + baked damage) and its `cockpit1` interior beside it for `--export-gltf=`/F10, on a throwaway duplicate.
+- `src/Tooling/CampaignMissionDocument.cs`, one campaign mission's lossless raw reader document and verified complete-scope ZIP export.
+- `src/Tooling/CampaignPlayerInit.cs`, the exact-index typed view that edits a mission's complete `PLAYER_INIT` record without rebuilding its raw objectives tree.
+- `src/Tooling/CampaignRosterStarts.cs`, exact-index typed views over each `aiv.zrd` block's spawn position, yaw, team and mission-logic group.
+- `src/Tooling/CampaignMissionEditorPlugin.cs`, the Godot editor dock for loading, inspecting, editing and exporting campaign mission reader scopes.
 - `src/Tooling/SyntheticData.cs`, `--synthetic-data`: writes an invented `extracted/` tree (the Original shell's files) into scratch, marked synthetic.
 - `src/Tooling/SyntheticTextures.cs`, the synthetic run's C1 texture archive, built in memory: one checker record per entry.
 - `src/Tooling/SyntheticPlane.cs`, the synthetic run's stand-in aircraft `probe_plane` and nine more: their box-built model in memory.

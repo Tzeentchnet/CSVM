@@ -1,6 +1,9 @@
 # Tooling
 
-The runtime tooling the game and the in-engine harness share: the `--dump-*` probes and their wrappers, the `--screenshot`/`--shots` capture, the golden-image hash, the glTF export, and the `--synthetic-data` tree. The game and `CSVM.Testing` both depend on this namespace; the one call from here into the harness is `--run-tests`' dispatch in `ProbeRunner.cs`.
+The runtime and editor tooling over CSVM's readers: the `--dump-*` probes and their wrappers,
+captures, golden-image hash, glTF export, synthetic-data tree and campaign mission editor. The game
+and `CSVM.Testing` both depend on this namespace; the one call from here into the harness is
+`--run-tests`' dispatch in `ProbeRunner.cs`.
 
 One `## src/...` entry per module, body at most 8 lines, 12 for the highest-traffic modules.
 
@@ -83,6 +86,35 @@ materials take their gamez and texture names past the writer's renaming, so a mo
 `allStates` (the `--node=` one-shot) keeps hidden gamez nodes, written hidden, and shows the subject, so a
 destructible's states reach the file. `.glb` by default. `ExportSet` writes several subtrees under one root at world transforms; `Export*ToExports` names a timestamped `Exports/` GLB, the writer `--export-gltf=`, F10 and NodeLab's export actions share.
 A plane's mounted `cockpit1` (`PlaneBuilder`'s direct child) never rides in its file; given `cockpitPath`, it is written there all states, root at identity, in interior units (`CockpitPathBeside`; F10 suffixes `_cockpit1`). An untextured `lighting: false` skin (`DrawsUnlit`) is written `KHR_materials_unlit`.
+
+## src/Tooling/CampaignMissionDocument.cs
+One story mission's complete raw `ZrdrFile` set as an editable document. It deep-copies the source,
+permits type-preserving string and float leaf edits, and exports every reader in source order to
+the canonical external-mod ZIP. Export writes beside neither the retail source nor the checkout,
+refuses a preferred unpacked sibling, reopens the temporary ZIP and compares names, trees, nulls
+and float bits before replacing the destination. Read `CampaignMissionEditorPlugin.cs` next.
+
+## src/Tooling/CampaignPlayerInit.cs
+The typed view over `objectives.zrd`'s complete `PLAYER_INIT` record. It follows `ZrdrDict`'s
+last-duplicate rule, retains each field's exact raw-list index, and writes through
+`CampaignMissionDocument` only. Position and authored attitude remain floats, throttle is a
+fraction, and speed is exposed in metres per second through `SpawnPoints.SpeedScale`. The pending
+flag is read-only.
+
+## src/Tooling/CampaignRosterStarts.cs
+Exact-index typed views over the complete spawn prefix of every variable-width `aiv.zrd` roster
+block. Position, yaw, team and mission-logic group write through `CampaignMissionDocument`;
+enabled/template state, names, net ids and every trailing field remain raw. The human `player`
+block is identified separately because campaign placement reads `PLAYER_INIT`. Read
+`Mech3/AiSkills.cs` for the runtime interpretation.
+
+## src/Tooling/CampaignMissionEditorPlugin.cs
+The enabled Godot editor dock over `CampaignMissionDocument`: source and mod-folder pickers, the 24
+campaign rows, one reader's raw tree, editable scalar cells, and typed player-start and roster-start
+tabs. It opens folders and disc images through `GameFileSource`, so the editor and a flight decode
+the same bytes. Structure, nulls, other typed panels and world preview remain outside this dock.
+Format and workflow:
+[../formats/missions/campaign-authoring.md](../formats/missions/campaign-authoring.md).
 
 ## src/Tooling/SyntheticData.cs
 `--synthetic-data`'s tree: an `extracted/` written into `.scratch/synthetic-data/<pid>/`, which
