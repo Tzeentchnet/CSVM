@@ -250,5 +250,5 @@ Full validated format documentation lives in **`docs/formats/`**, one page per f
 
 ## Current status / next step
 
-Campaign mission editing is active on `feature/campaign-mission-editor`; next add typed
-precipitation editing, then run the complete **`.\scripts\RunTests.ps1`** before merge.
+Active plan: [`EDITORPLAN.md`](EDITORPLAN.md), next item A1 typed precipitation editing.
+Run the complete **`.\scripts\RunTests.ps1`** before merging the editor branch.
