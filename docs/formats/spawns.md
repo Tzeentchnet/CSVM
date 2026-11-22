@@ -225,12 +225,14 @@ identical vertex data, and C2's studio-backlot landmarks (`ramses`, `sghangar`) 
 C2B. So one campaign region = several distinct sub-maps sharing a story region and an asset
 library, reused across that region's 4–5 missions.
 
-⚠ **`location.json` and `map.json` cannot tell chapters apart, both are stale copy-paste.**
+⚠ **`location.json` and `map.json` do not reliably identify a chapter.**
 Seven of eight chapters name the same `map_c1m04` minimap. C1, C1C and C2B ship a byte-identical
-`Airport_terminal`/`Passenger_hangar`/`Crops`/`Coast` camera-preset list, and C2 ships those same
-four plus a `Race Start`, Sea Haven airport bookmarks on two Hollywood maps. (C1B reuses C3's
-list.) They are dev bookmarks left un-updated; use gamez node names or danger zones to identify
-a world.
+`Airport_terminal`/`Passenger_hangar`/`Crops`/`Coast` location list, and C2 ships those same
+four plus a `Race Start` (C1B reuses C3's list). Reuse does not prove that these records are
+developer bookmarks or identify a retail consumer. CSVM's campaign player spawn reads
+`objectives.json`, not those records. Use gamez node names or danger zones to identify a world;
+the [campaign authoring boundary](missions/campaign-authoring.md) describes the generic scans
+that can still inspect a location reader.
 
 ## Evidence & limits
 

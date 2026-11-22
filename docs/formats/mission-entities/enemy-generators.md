@@ -25,6 +25,31 @@ has ground airfields `eairg31`/`eairg32`, a ship `eshipg31`, and a submarine `ba
 | `healthy` | 1/23 | the node whose destruction stops the generator (`subhealthy`, the submarine) |
 | `moving_path` | 1/23 | bare flag, it makes the take-off path **host-relative**, see [Launching from a surface host](#launching-from-a-surface-host) |
 
+### CSVM reader and authoring rules
+
+`EnemyGenerators.Load` selects the first mission `egen` reader and examines only its first outer
+element. It skips non-list records, requires a selected `node` string and a `vehicle` key, and
+rejects an empty reader or a record without those required fields. Each record and its vehicle
+block is an alternating key/list sequence. The last case-insensitive occurrence wins, including
+a bare key that replaces an earlier list with an empty list. A bare `vehicle` is therefore an
+empty block; a bare or non-string `node` is invalid.
+
+String and scalar directives use only slot 0 and retain any extra payload. `vehicle.nets` reads
+each direct string in order and ignores non-string entries; `vehicle.params` and `choose_nets`
+read only their first string. `rotation` is consumed only as exactly three floats. `zeppelin`
+and `moving_path` are presence flags, regardless of payload. `min_altitude` is a metre gate and
+any negative value is disabled. A missing or unresolved `origin` falls back to the host.
+Absent door names take the reader's host-derived default; when open is authored but close is not,
+the close name remains absent. Unknown directives and unused tails are not interpreted.
+
+The CSVM generator runtime resolves the host in the chapter world, the origin and surface take-off
+points under that host, template labels through the mission's disabled `aiv` blocks and vehicle
+plans, and nets by chapter name. A missing host, no resolved nets, or fewer than two surface
+take-off points drops the generator. An absent `params` uses the fallback launch; a present but
+unresolved label produces an empty launch. CSVM cycles net selection even when the reader accepts
+`random`. Only X of a parsed drop rotation drives CSVM's pitch, clamped to 80 degrees in either
+direction; Y and Z remain stored.
+
 **`min_altitude` is confirmed by the design document by name.** The design specifies that a
 zeppelin drops fighters through its hangar door and so must be high enough to do it; that the
 generator gets an extra altitude parameter for this; that generation is *held* until the

@@ -75,6 +75,33 @@ public sealed class CampaignMissionDocumentTests
     }
 
     [Fact]
+    public void RevisionChangesOnlyAfterSuccessfulMutations()
+    {
+        var document = CampaignMissionDocument.FromScope(
+            Mission,
+            Scope(
+                new ZrdrFile(
+                    "probe.zrd",
+                    null,
+                    new List<object?> { "before", 1f })));
+        int notifications = 0;
+        document.Changed += () => notifications++;
+
+        Assert.Equal(0, document.Revision);
+        Assert.False(document.SetLeaf(0, new[] { 0 }, "before"));
+        Assert.Throws<InvalidOperationException>(
+            () => document.SetLeaf(0, new[] { 0 }, 2f));
+        Assert.Equal(0, document.Revision);
+        Assert.Equal(0, notifications);
+
+        Assert.True(document.SetLeaf(0, new[] { 0 }, "after"));
+        Assert.True(document.SetLeaf(0, new[] { 1 }, -0f));
+
+        Assert.Equal(2, document.Revision);
+        Assert.Equal(2, notifications);
+    }
+
+    [Fact]
     public void ExportWritesEveryReaderInOrderAndRoundTripsExactly()
     {
         float subnormal = BitConverter.UInt32BitsToSingle(1);

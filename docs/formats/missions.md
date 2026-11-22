@@ -118,8 +118,8 @@ scrapbook row. Flat alternating `KEY, [values…]`; all three keys are optional.
 | `nosnapshot` | `[dzpathN, …]` | zones that score but capture no scrapbook snapshot |
 
 - **`objective_numbers`** values occupy a fixed **18–31** band across the whole install (14
-  distinct values, contiguous within a mission), a reserved slot range for danger zones in the
-  mission's objective list, not a zone id. C5/M01 uses all 14. The number is the zone's bit in the
+  distinct values, contiguous within a mission), a reserved completion and scrapbook slot range,
+  not a zone id or an `OBJECTIVEn` graph reference. C5/M01 uses all 14. The number is the zone's bit in the
   completed-objective mask and the objective half of the `Snap_<mission>_<objective>` scrapbook row
   it photographs into (`docs/formats/campaign-screens.md`, "The danger-zone slot"). ⚠ The debrief
   turns ids **18 to 30** into mask bits and stops there, so a zone numbered 31 scores and
@@ -131,6 +131,21 @@ scrapbook row. Flat alternating `KEY, [values…]`; all three keys are optional.
   objective number, but no photograph is written for it, which is why CM11/CM12 ship no `Snap_*_27`
   row for the zone they number 27. C5 sets it on 20 of 34 paths in every story mission (measured);
   C5/IA1's file carries `nosnapshot` alone.
+
+The runtime reads only the first mission-local `dzones.zrd`. An absent reader means no overrides,
+even if the chapter has a reader of that name. Within it, the last case-insensitive occurrence of
+each alternating key wins, including a bare key, which selects an empty list. `disable` and
+`nosnapshot` consume direct strings only. `objective_numbers` consumes lists with a string name
+and float in their first two positions; the last valid pair for a case-insensitive name wins and
+the float is cast to an integer. Other elements and pair tails are not consumed.
+
+The player tracker arms the union of names from the selected, contiguous objective blocks, minus
+the disabled names, only when the first matching chapter-world node has valid gate geometry.
+Snapshot policy does not itself arm a zone. Staging a photograph also requires snapshot policy
+to allow it, a nonnegative slot, a profile directory and an available camera; the pending-photo
+commit sweep covers slots 10 to 31.
+The AI ribbon set uses the last valid ribbon for a numeric `dzpathN` index, a different duplicate
+rule from the player's first case-insensitive world-node lookup.
 
 ## Target display keys
 
@@ -155,6 +170,19 @@ must be walked as pairs.
 | `nodes` | List of target(s) this entry labels (usually one; the `dzN` for a zone). A target is a bare world-node name or a nested `[parent, child]` path (`[wv_tailhook, peoplehook]`, `[piratezep, rock_zeppelin]`), the same shape and key `objectives.zrd`'s target directives use ([objectives.md](objectives.md)). |
 | `category_label` | The target *type* key (`MSG_OBJ_DZ` = "Danger Zone"). Optional. |
 | `help_label` | The *action* key (`MSG_OBJ_FLYTHROUGH` / `MSG_OBJ_FLYOVER` / `MSG_OBJ_REFPOINT`). |
+| `objective` | Starts the target on the objective/Enemy cycle when the key is present. |
+| `other_target` | Starts the target on the Non-Aircraft cycle when the key is present. |
+
+`MissionTargets` takes the last `description`, `category_label`, `help_label` and `nodes` pair in
+each entry, even when that last value is malformed. Either flag is true when any matching pair is
+present; if both flags are true, `ObjectiveSites` gives the objective cycle priority. Each node in
+the selected list receives the entry's labels and flags. Later entries replace earlier entries for
+the same case-insensitive node key. A nested node list becomes one slash-joined key; at runtime its
+key is split on slashes and each segment is resolved inside the previous node.
+
+In CSVM, `MissionTargets.Load(mission, chapter)` selects the mission file whole and falls back to
+the chapter only when it is absent. A present empty reader is invalid rather than a fallback.
+The [campaign editor](missions/campaign-authoring.md#editor-surfaces) preserves this boundary.
 
 The file is generic across mission types, the same schema labels dogfight zeppelins
 (`MSG_TRGT_ZEP_ENEMY` / `MSG_OBJ_DISABLEENG`) and reference points (`ap_transmitter`

@@ -40,6 +40,9 @@ zeppelin-damage fuse in `extracted\C3\M04`.
 
 ## Conceptual model
 
+For the lossless editor's supported directive fields, atomic number swaps and their limits, see
+[campaign authoring](missions/campaign-authoring.md#editor-surfaces).
+
 The file is a flat zrdr list: a handful of file-level keys, then `OBJECTIVE1`, `OBJECTIVE2`, …
 blocks. The parser (`FUN_00466b70`) loads `OBJECTIVE%d` for d = 1, 2, 3, … and **stops at the
 first number that is missing**, so numbering must be contiguous from 1. Each block becomes a

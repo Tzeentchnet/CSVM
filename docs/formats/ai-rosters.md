@@ -22,13 +22,23 @@ One file per mission directory (53 in this install), **414 vehicle blocks** tota
 [ header, ["nodename", [ …flat fields… ]], … ]
 ```
 
-The header (element 0) is a positional `(slotId, designerLabel)` list, **one pair per vehicle block,
-in block order**. Labels mix character names with param-set names (`Eairg31_params`) that `egen.json`'s
-`vehicle.params` references ([mission-entities.md](mission-entities.md)).
+The header (element 0) has a leading count followed by positional `(slotId, designerLabel)` pairs,
+**one pair per vehicle block, in block order**. Labels mix character names with param-set names
+(`Eairg31_params`) that `egen.json`'s `vehicle.params` references
+([mission-entities.md](mission-entities.md)).
 
 ⚠ **Blocks are not fixed-width, trailing fields are simply omitted.** Field-count histogram across
 the 414: `{42: 20, 65: 1, 66: 33, 67: 14, 68: 39, 81: 307}`. A reader that assumes 81 throws on a
 quarter of the data; read defensively and treat a missing slot as unset.
+
+CSVM selects the first matching `aiv` reader and retains roster blocks in raw order, including
+duplicate names. `CampaignDirector` later indexes spawned rigs by name. Disabled template labels
+come from the header pair at the same block position. When planning completes, duplicate labels
+select the last block that produces a plan; a planning error leaves the editor diagnostic
+unverified. The campaign editor exposes independently supported existing leaves and retains
+unsupported slots, names, flags and header data in the raw tree. Its net-choice editor does not
+add, remove or reorder list elements. The human `player` block is read-only in the roster panel
+because `PLAYER_INIT` places the aircraft.
 
 ### Field table
 
@@ -105,7 +115,7 @@ by its positional header label when the mission later credits that generator. Th
 name resolves to its `vehicle.json` def by stripping trailing `_N` ordinals (`blakepeace_2_1` →
 `blakepeace_2`), and the def's `mode` plus slot 0 decide the fork above. Read at spawn: slots 0–7,
 the twelve volume slots 8–19 (over the net's own, see [ai-nets.md](ai-nets.md)), 20, 21, 22–30,
-31, 32, 33, 34, 37, 38, 39, 40, 65 and 66. Slots 37, 38 and 39 are STAMPED onto the aeroplane the
+31, 32, 33, 34, 37, 38, 39, 40, 65, 66 and 67. Slots 37, 38 and 39 are STAMPED onto the aeroplane the
 block spawns as (`CampaignRosterPlan.SpawnFor` into `AiSpawn`, resolved and applied by
 `AiFlightAssembler`), so the block's own ordinary vehicle candidate carries the marker: one target,
 under the block's slot-20 name, ranked Objective ahead of every Enemy Target, and gated on the

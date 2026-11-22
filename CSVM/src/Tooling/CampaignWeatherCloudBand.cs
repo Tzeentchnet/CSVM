@@ -187,25 +187,28 @@ public sealed class CampaignWeatherCloudBand
                 problem);
         }
 
-        bool changed = false;
-        changed |= SetScalar(_topIndex, state.Top);
-        changed |= SetScalar(_bottomIndex, state.Bottom);
-        changed |= SetScalar(_thicknessIndex, state.Thickness);
-        if (state.TopColor is { } topColor)
+        return _document.BatchLeaves("Edit cloud band", () =>
         {
-            changed |= SetColor(
-                _topColorIndex,
-                topColor);
-        }
+            bool changed = false;
+            changed |= SetScalar(_topIndex, state.Top);
+            changed |= SetScalar(_bottomIndex, state.Bottom);
+            changed |= SetScalar(_thicknessIndex, state.Thickness);
+            if (state.TopColor is { } topColor)
+            {
+                changed |= SetColor(
+                    _topColorIndex,
+                    topColor);
+            }
 
-        if (state.BottomColor is { } bottomColor)
-        {
-            changed |= SetColor(
-                _bottomColorIndex,
-                bottomColor);
-        }
+            if (state.BottomColor is { } bottomColor)
+            {
+                changed |= SetColor(
+                    _bottomColorIndex,
+                    bottomColor);
+            }
 
-        return changed;
+            return changed;
+        });
     }
 
     private static string? ColorShapeProblem(

@@ -138,7 +138,7 @@ public sealed class DangerZoneRibbons
         return best;
     }
 
-    private static bool TryIndexOf(string name, out int index)
+    internal static bool TryIndexOf(string name, out int index)
     {
         index = -1;
         const string prefix = "dzpath";
@@ -150,7 +150,7 @@ public sealed class DangerZoneRibbons
 
     // The route is the one polygon whose material no other polygon of the mesh shares; the gate
     // pair shares theirs. Polygon index is never the discriminator (docs/formats/missions.md).
-    private static GameZPolygon? RoutePolygon(GameZMesh mesh)
+    internal static GameZPolygon? RoutePolygon(GameZMesh mesh)
     {
         var counts = new Dictionary<int, int>();
         foreach (var poly in mesh.Polygons)

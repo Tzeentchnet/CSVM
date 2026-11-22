@@ -229,15 +229,18 @@ public sealed class CampaignWeatherFogZone
                 problem);
         }
 
-        bool changed = false;
-        changed |= SetColor(0, state.ColorR);
-        changed |= SetColor(1, state.ColorG);
-        changed |= SetColor(2, state.ColorB);
-        changed |= SetRange(0, state.Near);
-        changed |= SetRange(1, state.Far);
-        changed |= SetAltitude(0, state.Low);
-        changed |= SetAltitude(1, state.High);
-        return changed;
+        return _document.BatchLeaves("Edit fog", () =>
+        {
+            bool changed = false;
+            changed |= SetColor(0, state.ColorR);
+            changed |= SetColor(1, state.ColorG);
+            changed |= SetColor(2, state.ColorB);
+            changed |= SetRange(0, state.Near);
+            changed |= SetRange(1, state.Far);
+            changed |= SetAltitude(0, state.Low);
+            changed |= SetAltitude(1, state.High);
+            return changed;
+        });
     }
 
     internal string? StateProblem(

@@ -22,7 +22,7 @@ instances; the rest are conditional.
 | `max_accel`, `accel_pitch`, `accel_yaw` | | acceleration limits |
 | `max_rate_yaw`, `max_rate_pitch` | °/s | turn-rate limits |
 | `min_pitch` / `max_pitch` | ° | ±30 throughout |
-| `net` | name | the AI "net" (roster/behaviour group) it belongs to |
+| `net` | name | the chapter AI patrol net it follows |
 | `targets` | node names | who it shoots at once the script engages the cannons, `player`, or another zeppelin (`piratezep`, `dantezep`, …); inert until `COMPLETED_ZEPCANNONS` or the Zeppelin vs Zeppelin side setup engages it (see [Broadside firing](#broadside-firing)). ⚠ The 8 IA1 files author `targets, null`, key present, no list, so the "47" key census is 39 name lists + 8 nulls |
 | `healthy` | `[[zoneNode, "panels"], …]` | the **critical** zones; second field is `"panels"` on all 316 entries |
 | `num_healthy_required` | 2–5 | how many of those must **survive**; drop below and the zeppelin dies. Confirmed against the engine, see [below](#the-kill-threshold-counts-survivors). Defaults to **1** when a `healthy` list is present, and is clamped at load to the length of that list |
@@ -41,6 +41,31 @@ Fields 1 and 2 are `"gunback"` and `"frame"` on all 144 entries (sub-nodes of th
 field 3 names the **gasbag the cannon is attached to**; `hp` is 200 throughout; then the
 destruction anim and a descending-fraction damage-stage list (0.6 → `60_*`, 0.3 → `30_*`) with
 the same shape as `injure_anims` in [vehicle.md](vehicle.md).
+
+### Reader selection and variable-width entries
+
+`Zeppelins.Load` takes the first matching mission reader and reads its first root element as the
+instance list. `[null]` produces no instances; an absent or empty reader fails at the scope loader.
+Campaign launch tolerates an absent reader, but not an invalid empty reader. Within an instance,
+`ZrdrDict` selects the last case-insensitive occurrence of a key, including a bare key, which
+replaces an earlier list with an empty value. `node` and `net` require
+a string in slot 0, and `position` requires exactly three floats. Scalar readers consume only
+slot 0. Unrecognized keys and extra scalar-list values are not interpreted.
+
+The collection readers accept these prefixes and skip malformed entries without shifting later
+ones. A `targets` or `engines` element must be a direct string. `healthy` requires two strings.
+`gasbags` requires a string and a float, with an optional list whose first string is its
+destruction animation. Each broadside cannon requires three strings. `cannon_health` requires at
+least seven elements, with strings at slots 0 and 3 and a float at slot 4; slots 1 and 2 default
+to `gunback` and `frame` when they are not strings. Slot 5 optionally supplies the first
+destruction-animation string. Each stage in slot 6 requires a float and a string. Additional entry
+and stage values are not interpreted.
+
+`ZeppelinRuntime` counts duplicate healthy entries literally but binds the first state child for
+each case-insensitive node name. Its gasbag lookup uses the last valid gasbag entry for each name
+and consumes it only where a healthy node matches. The runtime parses the `gunback` and `frame`
+names but does not use them in its damage wiring. These reader and consumer boundaries are the
+editable prefixes in the [campaign authoring workflow](missions/campaign-authoring.md#editor-surfaces).
 
 ### The kill threshold counts survivors
 

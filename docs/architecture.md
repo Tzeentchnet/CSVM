@@ -797,12 +797,36 @@ to dispatch `--run-tests`.
 - `src/Tooling/CaptureDirector.cs`, the `--screenshot=`/`--shots=`/`--frames=` capture state machine, F11's camera-pose print and F12's save, ticked from `_Process`.
 - `src/Tooling/GltfExporter.cs`, exports the viewer plane subtree to glTF (mesh + livery + baked damage) and its `cockpit1` interior beside it for `--export-gltf=`/F10, on a throwaway duplicate.
 - `src/Tooling/CampaignRawList.cs`, the shared exact-index lookup over alternating key/list reader data.
-- `src/Tooling/CampaignMissionDocument.cs`, one campaign mission's lossless raw reader document and verified complete-scope ZIP export.
+- `src/Tooling/CampaignMissionDocument.cs`, one campaign mission's lossless raw reader document, edit history and verified complete-scope ZIP export.
+- `src/Tooling/CampaignMissionEdit.cs`, immutable raw before/after operations and document-bound replay sessions.
+- `src/Tooling/CampaignMissionUndoBridge.cs`, the Godot editor-history bridge and its document-lifetime guard.
+- `src/Tooling/CampaignMissionDependencyBundle.cs`, one selected mission's materialized read-only dependencies and exact-path availability states.
+- `src/Tooling/CampaignMissionImport.cs`, strict complete-scope import from an existing mission ZIP or unpacked directory.
+- `src/Tooling/CampaignReferenceRecords.cs`, immutable source locations, reference rules, verdicts, issues and snapshots.
+- `src/Tooling/CampaignReferenceExtractor.cs`, source-preserving reference projections and nonblocking unverified-family coverage.
+- `src/Tooling/CampaignObjectiveReferences.cs`, exact objective, target-path, world-path and briefing-message references.
+- `src/Tooling/CampaignReferenceIndex.cs`, scope-correct field-specific reference indexes and resolvers.
+- `src/Tooling/CampaignReferenceDiagnostics.cs`, revision-aware aggregation and inherited-versus-new failure ownership.
+- `src/Tooling/CampaignMissionTargets.cs`, exact target flags and label edits with explicit chapter-to-mission copy.
+- `src/Tooling/CampaignMissionZeppelins.cs`, exact runtime-selected zeppelin placement, behavior, and damage fields.
+- `src/Tooling/CampaignMissionGenerators.cs`, exact generator timing and reference fields with host-relative origin projection.
+- `src/Tooling/CampaignMissionObjectives.cs`, ordered objective views, validated directive leaves and atomic number swaps.
+- `src/Tooling/CampaignMissionStartAnimations.cs`, revision-bound ordered startup names and exact entry moves.
+- `src/Tooling/CampaignMissionReaderSummaries.cs`, read-only map, multiplayer-spawn and effective-animation projections.
+- `src/Tooling/CampaignMissionDangerZones.cs`, mission-local danger-zone overrides and read-only chapter ribbon projections.
+- `src/Tooling/CampaignDangerRibbonPreview.cs`, a non-interactive top-down chapter ribbon plot.
+- `src/Tooling/CampaignMissionPreview.cs`, revision-aware mission overlay projections and exact source selections.
+- `src/Tooling/CampaignMissionPreviewWorld.cs`, disposable chapter-world construction, setup and scoped spatial resolution for the editor.
+- `src/Tooling/CampaignMissionPreviewPanel.cs`, the opt-in Godot viewport, derived handles and source navigation.
 - `src/Tooling/CampaignPlayerInit.cs`, the exact-index typed view that edits a mission's complete `PLAYER_INIT` record without rebuilding its raw objectives tree.
-- `src/Tooling/CampaignRosterStarts.cs`, exact-index typed views over each `aiv.zrd` block's spawn position, yaw, team and mission-logic group.
+- `src/Tooling/CampaignRosterStarts.cs`, exact-index typed views over roster starts and independently supported AI fields.
 - `src/Tooling/CampaignWeatherColor.cs`, shared source-encoding validation for typed weather colors.
 - `src/Tooling/CampaignWeatherCloudBand.cs`, the exact-index typed view over `weather.zrd`'s cloud-band geometry and existing colors.
+- `src/Tooling/CampaignWeatherPrecipitation.cs`, the exact-index typed view over `weather.zrd`'s top-level precipitation fields.
 - `src/Tooling/CampaignWeatherFog.cs`, dynamic exact-index views over `weather.zrd`'s runtime fog-zone fields.
+- `src/Tooling/CampaignWeatherLighting.cs`, dynamic exact-index views over `weather.zrd`'s runtime clip and sunlight-zone fields.
+- `src/Tooling/CampaignWeatherDiagnostics.cs`, the runtime-derived read-only weather labels and plot values over the editable mission document.
+- `src/Tooling/CampaignWeatherPreview.cs`, the Godot control that draws the campaign weather summary's numeric cloud-band and fog-range plots.
 - `src/Tooling/CampaignWeatherWind.cs`, the exact-index typed view over `weather.zrd`'s static and random-walk wind fields.
 - `src/Tooling/CampaignMissionEditorPlugin.cs`, the Godot editor dock for loading, inspecting, editing and exporting campaign mission reader scopes.
 - `src/Tooling/SyntheticData.cs`, `--synthetic-data`: writes an invented `extracted/` tree (the Original shell's files) into scratch, marked synthetic.

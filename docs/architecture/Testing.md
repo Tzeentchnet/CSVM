@@ -103,7 +103,7 @@ order, and `docs/tooling.md` for each tier's selection rule.
 The in-engine scenario bodies, one module per domain: the emitter model, combat and ordnance,
 Instant Action, AI, targeting, wingmen, the campaign and its menus, music, zeppelins, damage and
 destroy choreography, animation and effects, the built world's data gates and censuses, and the
-landing, capture and coop surfaces, and the two-session network harness that stands a host and a
+landing, capture, coop and invented mission-preview and undo-bridge surfaces, and the two-session network harness that stands a host and a
 guest `GameSession` up in one process over a loopback mesh. Each module holds `[Suite("name", "what")]` bodies,
 a `static void` taking a `TestContext`; `SuiteCatalog` discovers them by that attribute, so adding
 a suite means adding a marked body to the module that already covers its domain, or a new module

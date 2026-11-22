@@ -23,6 +23,13 @@ duplicate. Later duplicates, unknown fields, and trailing values remain untouche
 midpoint or thinning the core can expose the hard deck-regime transition described below; the tab
 warns about that limit and does not provide a geometry preview.
 
+The dock's read-only Summary tab loads the edited reader through `WeatherState` and shows the
+authored band edges, opaque-core edges, midpoint, base whiteout amount and interpolated band color
+at a user-entered altitude. Its vertical plot keeps the core-bottom camera-state threshold and the
+midpoint object/deck threshold separate. The plot is numeric weather state only. It does not draw a
+deck or horizon, infer state 3 without chapter fog volumes, or include the per-frame whiteout
+flicker applied after `WeatherState.WhiteoutAmount`.
+
 ⚠ **`TOP_COLOR`/`BOTTOM_COLOR` are not the deck mesh's face tints**, whatever the names
 suggest (this page said so until). Three of the four chapters that author them,
 C1B, C3, C5, ship **no `CloudDeck` mesh at all** (`WorldBuilder`'s coverage table), so there
@@ -264,6 +271,15 @@ read with `ScalarAfter` and cast.
 `COLOR` is dual-encoded like the other colour triples (here always the integer form) and
 normalized by `ParseColor`; it's a DX7 sRGB framebuffer value, so the renderer converts it
 sRGB→linear (same as `FOG_COLOR`).
+
+The campaign editor exposes an existing complete definition without constructing one. Its
+`TYPE`, scalar fields, and optional `PARTICLES` bind the first immediate value of the runtime's
+expected type. `COLOR` binds the first immediate list, while `ALPHA_GRADIENT` binds the first
+immediate list carrying two floats. An unknown `TYPE`, a malformed selected `COLOR`, or any missing
+required field leaves the optional tab unavailable rather than selecting a different duplicate.
+Applying the tab writes only those selected leaves. A missing `PARTICLES` stays missing, color and
+vector tails stay intact, and later duplicates, unknown keys, and unrelated weather data remain
+raw.
 
 Rendered by `CSVM/src/Effects/Precipitation.cs` as one camera-following MultiMesh
 field the plane flies through (SNOW = billboarded flakes, RAIN = fall-aligned streak quads);

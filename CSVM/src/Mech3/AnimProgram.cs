@@ -27,6 +27,7 @@ public sealed class AnimProgram
     private readonly List<string> _missionLibrarySkipped = new();
     private readonly SortedSet<string> _sharedFilesSkipped = new(StringComparer.OrdinalIgnoreCase);
     private readonly SortedSet<string> _chapterFilesSkipped = new(StringComparer.OrdinalIgnoreCase);
+    private readonly bool _mergeReaderState;
 
     private readonly Dictionary<string, List<AnimDefinition>> _byAnimName =
         new(StringComparer.OrdinalIgnoreCase);
@@ -35,6 +36,11 @@ public sealed class AnimProgram
     // its own source carries (see Add).
     private readonly Dictionary<string, AnimDefinition> _seen =
         new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Creates an empty animation program.</summary>
+    public AnimProgram() : this(mergeReaderState: true) { }
+
+    private AnimProgram(bool mergeReaderState) => _mergeReaderState = mergeReaderState;
 
     /// <summary>Every definition, compiled-preferred, in load order. Read-only by type as well as
     /// by convention: one program is shared by every runtime bound from it, and may be shared by
@@ -74,79 +80,8 @@ public sealed class AnimProgram
     /// behaviour. The archives' defs become this program's, so a caller hands each archive to the
     /// one mission it belongs to (see <see cref="Add"/>).</summary>
     public static AnimProgram Load(ZrdrSet sharedZrdr, ZrdrSet chapterZrdr, ZrdrSet missionZrdr,
-        AnimArchive? chapterAnim, AnimArchive? missionAnim)
-    {
-        var program = new AnimProgram();
-
-        // Compiled first, so it wins every collision.
-        var missionManifest = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        bool haveMissionManifest = false;
-        foreach (var (loaded, isMission) in new[] { (chapterAnim, false), (missionAnim, true) })
-        {
-            if (loaded is not { } archive)
-                continue;
-            program.ScriptPoolCount += archive.ScriptCount;
-            if (isMission)
-                haveMissionManifest = true;
-            foreach (var def in archive.Defs)
-            {
-                if (isMission)
-                    missionManifest.Add(KeyOf(def));
-                program.Add(def, compiled: true);
-            }
-        }
-
-        // The readers fill in what was never compiled. Both shared and chapter scope are gated by
-        // the compiled manifest when one loaded (docs/formats/anim-definitions.md "Shared-scope
-        // files are listed per mission too"), else this degrades to reader-only behaviour.
-        var listedShared = haveMissionManifest
-            ? ListedSharedFiles(sharedZrdr, chapterZrdr, missionZrdr)
-            : null;
-        var listedChapter = haveMissionManifest
-            ? ListedChapterFiles(chapterZrdr, missionZrdr)
-            : null;
-        foreach (var (zrdr, shared) in new[] { (sharedZrdr, true), (chapterZrdr, false) })
-        {
-            foreach (var def in AnimDefs.LoadArchive(zrdr))
-            {
-                if (listedShared != null && shared
-                    && !listedShared.Contains(StemOf(def.SourceFile)))
-                {
-                    program._sharedFilesSkipped.Add(StemOf(def.SourceFile));
-                    continue;
-                }
-                if (listedChapter != null && !shared
-                    && !listedChapter.Contains(StemOf(def.SourceFile)))
-                {
-                    program._chapterFilesSkipped.Add(StemOf(def.SourceFile));
-                    continue;
-                }
-
-                // NAME1 multi-target defs are per-mission content the compiler expands into
-                // mis_anim (see MissionLibrarySkipped); with a manifest present the reader
-                // form must not anchor zeppelin sub-parts the loaded mission never authors.
-                if (haveMissionManifest && def.MultiTargets.Count > 0)
-                {
-                    program._missionLibrarySkipped.Add($"{def.AnimName} (NAME1)");
-                    continue;
-                }
-                program.Add(def, compiled: false);
-            }
-        }
-
-        foreach (var def in AnimDefs.LoadArchive(missionZrdr))
-        {
-            if (haveMissionManifest && !missionManifest.Contains(KeyOf(def)))
-            {
-                program._missionLibrarySkipped.Add($"{def.Name}/{def.AnimName}");
-                continue;
-            }
-            program.Add(def, compiled: false);
-        }
-
-        program.LoadStartAnims(missionZrdr);
-        return program;
-    }
+        AnimArchive? chapterAnim, AnimArchive? missionAnim) =>
+        LoadCore(sharedZrdr, chapterZrdr, missionZrdr, chapterAnim, missionAnim, mergeReaderState: true);
 
     /// <summary>Definitions an ANIMATION_NAME refers to (startanims entries, CALL_ANIMATION
     /// targets). Several defs can share a name, template anims instantiate per object.</summary>
@@ -220,6 +155,12 @@ public sealed class AnimProgram
         return def.Archive.Script(def.SiScriptIds[slot]);
     }
 
+    // Inspection uses the same lookup and gates without changing cached compiled definitions.
+    // Its reader-only state is incomplete, so never bind it as a runtime program.
+    internal static AnimProgram LoadForInspection(ZrdrSet sharedZrdr, ZrdrSet chapterZrdr, ZrdrSet missionZrdr,
+        AnimArchive? chapterAnim, AnimArchive? missionAnim) =>
+        LoadCore(sharedZrdr, chapterZrdr, missionZrdr, chapterAnim, missionAnim, mergeReaderState: false);
+
     /// <summary>A program over definitions built in code, for a suite that drives the runtime on
     /// authored event shapes rather than on a mission's archives. Same dedup rule as a loaded
     /// program; nothing here reads an archive, so the defs carry no SI scripts.</summary>
@@ -249,6 +190,81 @@ public sealed class AnimProgram
         if (dash > 0 && dash < leaf.Length - 1 && leaf.AsSpan(dash + 1).ToString().All(char.IsDigit))
             leaf = leaf[..dash];
         return leaf;
+    }
+
+    private static AnimProgram LoadCore(ZrdrSet sharedZrdr, ZrdrSet chapterZrdr, ZrdrSet missionZrdr,
+        AnimArchive? chapterAnim, AnimArchive? missionAnim, bool mergeReaderState)
+    {
+        var program = new AnimProgram(mergeReaderState);
+
+        // Compiled first, so it wins every collision.
+        var missionManifest = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool haveMissionManifest = false;
+        foreach (var (loaded, isMission) in new[] { (chapterAnim, false), (missionAnim, true) })
+        {
+            if (loaded is not { } archive)
+                continue;
+            program.ScriptPoolCount += archive.ScriptCount;
+            if (isMission)
+                haveMissionManifest = true;
+            foreach (var def in archive.Defs)
+            {
+                if (isMission)
+                    missionManifest.Add(KeyOf(def));
+                program.Add(def, compiled: true);
+            }
+        }
+
+        // The readers fill in what was never compiled. Both shared and chapter scope are gated by
+        // the compiled manifest when one loaded (docs/formats/anim-definitions.md "Shared-scope
+        // files are listed per mission too"), else this degrades to reader-only behaviour.
+        var listedShared = haveMissionManifest
+            ? ListedSharedFiles(sharedZrdr, chapterZrdr, missionZrdr)
+            : null;
+        var listedChapter = haveMissionManifest
+            ? ListedChapterFiles(chapterZrdr, missionZrdr)
+            : null;
+        foreach (var (zrdr, shared) in new[] { (sharedZrdr, true), (chapterZrdr, false) })
+        {
+            foreach (var def in AnimDefs.LoadArchive(zrdr))
+            {
+                if (listedShared != null && shared
+                    && !listedShared.Contains(StemOf(def.SourceFile)))
+                {
+                    program._sharedFilesSkipped.Add(StemOf(def.SourceFile));
+                    continue;
+                }
+                if (listedChapter != null && !shared
+                    && !listedChapter.Contains(StemOf(def.SourceFile)))
+                {
+                    program._chapterFilesSkipped.Add(StemOf(def.SourceFile));
+                    continue;
+                }
+
+                // NAME1 multi-target defs are per-mission content the compiler expands into
+                // mis_anim (see MissionLibrarySkipped); with a manifest present the reader
+                // form must not anchor zeppelin sub-parts the loaded mission never authors.
+                if (haveMissionManifest && def.MultiTargets.Count > 0)
+                {
+                    program._missionLibrarySkipped.Add($"{def.AnimName} (NAME1)");
+                    continue;
+                }
+                program.Add(def, compiled: false);
+            }
+        }
+
+        foreach (var def in AnimDefs.LoadArchive(missionZrdr))
+        {
+            if (haveMissionManifest && !missionManifest.Contains(KeyOf(def)))
+            {
+                program._missionLibrarySkipped.Add($"{def.Name}/{def.AnimName}");
+                continue;
+            }
+            program.Add(def, compiled: false);
+        }
+
+        program.LoadStartAnims(missionZrdr);
+        return program;
     }
 
     /// <summary>The shared-scope reader files a mission sees, by stem: the closure of the shared
@@ -320,7 +336,8 @@ public sealed class AnimProgram
             // PERSIST_LOG lives only in the reader form, so a def whose compiled twin won this
             // key would lose the flag and cross no mission boundary. Only ever set, never clear:
             // Subset re-Adds the same objects, and the two sources are one authored definition.
-            kept.PersistLog |= def.PersistLog;
+            if (_mergeReaderState)
+                kept.PersistLog |= def.PersistLog;
             return;
         }
 

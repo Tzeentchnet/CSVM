@@ -1209,6 +1209,14 @@ order matters: C1/IA1 runs `hangar3_doors` (doors to ±50) then `mp_hangar3_open
 visible scopes (C1/IA1 lists `pure_panic`, defined only in C1/M02's folder), the
 engine evidently tolerates the miss; skip and log.
 
+CSVM selects the first matching mission reader and walks each case-insensitive
+`NEW_GAME_START` list in the first root list. It takes only the first string of each nested entry,
+retaining duplicates and order; malformed entries and entry tails are not dispatched. After the
+`ON_STARTUP` pass, each occurrence is dispatched in order, so a duplicate can start or reset the
+same definitions again. Lookup is case-insensitive and can match several definitions with the same
+animation name. A missing name is logged and skipped. A listed reader path alone does not prove a
+definition survives the compiled manifest and reader-scope gates.
+
 ## Zeppelin states
 
 Ordinary ANIMATION_DEFINITIONs, `ACTIVATION ON_STARTUP`, whose sequences hold only

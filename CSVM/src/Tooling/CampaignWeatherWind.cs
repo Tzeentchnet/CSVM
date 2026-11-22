@@ -141,20 +141,23 @@ public sealed class CampaignWeatherWind
     public bool Apply(CampaignWeatherWindState state)
     {
         Validate(state);
-        bool changed = false;
-        changed |= SetVector(0, state.StaticX);
-        changed |= SetVector(1, state.StaticY);
-        changed |= SetVector(2, state.StaticZ);
-        changed |= SetScalar(
-            _randomMaxSpeedIndex,
-            state.RandomMaxSpeed);
-        changed |= SetScalar(
-            _randomAccelIndex,
-            state.RandomAccel);
-        changed |= SetScalar(
-            _randomAngVelIndex,
-            state.RandomAngVelDeg);
-        return changed;
+        return _document.BatchLeaves("Edit wind", () =>
+        {
+            bool changed = false;
+            changed |= SetVector(0, state.StaticX);
+            changed |= SetVector(1, state.StaticY);
+            changed |= SetVector(2, state.StaticZ);
+            changed |= SetScalar(
+                _randomMaxSpeedIndex,
+                state.RandomMaxSpeed);
+            changed |= SetScalar(
+                _randomAccelIndex,
+                state.RandomAccel);
+            changed |= SetScalar(
+                _randomAngVelIndex,
+                state.RandomAngVelDeg);
+            return changed;
+        });
     }
 
     private static void Validate(

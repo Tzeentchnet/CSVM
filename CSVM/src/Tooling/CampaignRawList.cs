@@ -69,6 +69,44 @@ internal static class CampaignRawList
         return -1;
     }
 
+    internal static int FirstFloatValueIndex(
+        List<object?> values,
+        string wanted)
+    {
+        for (int i = 0; i + 1 < values.Count; i++)
+        {
+            if (values[i] is string key
+                && key.Equals(
+                    wanted,
+                    StringComparison.OrdinalIgnoreCase)
+                && values[i + 1] is float)
+            {
+                return i + 1;
+            }
+        }
+
+        return -1;
+    }
+
+    internal static int FirstStringValueIndex(
+        List<object?> values,
+        string wanted)
+    {
+        for (int i = 0; i + 1 < values.Count; i++)
+        {
+            if (values[i] is string key
+                && key.Equals(
+                    wanted,
+                    StringComparison.OrdinalIgnoreCase)
+                && values[i + 1] is string)
+            {
+                return i + 1;
+            }
+        }
+
+        return -1;
+    }
+
     internal static int FirstListValueIndex(
         List<object?> values,
         string wanted)
@@ -80,6 +118,40 @@ internal static class CampaignRawList
                     wanted,
                     StringComparison.OrdinalIgnoreCase)
                 && values[i + 1] is List<object?>)
+            {
+                return i + 1;
+            }
+        }
+
+        return -1;
+    }
+
+    internal static int FirstVectorValueIndex(
+        List<object?> values,
+        string wanted,
+        int componentCount)
+    {
+        for (int i = 0; i + 1 < values.Count; i++)
+        {
+            if (values[i] is not string key
+                || !key.Equals(
+                    wanted,
+                    StringComparison.OrdinalIgnoreCase)
+                || values[i + 1] is not List<object?> vector
+                || vector.Count < componentCount)
+            {
+                continue;
+            }
+
+            bool complete = true;
+            for (int component = 0;
+                 component < componentCount;
+                 component++)
+            {
+                complete &= vector[component] is float;
+            }
+
+            if (complete)
             {
                 return i + 1;
             }

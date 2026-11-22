@@ -127,7 +127,9 @@ A team Dogfight reads the whole table instead (`SpawnPoints.LoadNetTable`). `Spa
 opens a seat on lobby team N at block N's entry for its place among that team's seats, and a seat
 on no team, or on a team the map authors no block for, on block 0. A downed seat comes back inside
 its own block. The reader skips a node that is not four numbers, which would shift every block
-after it, where the original copies nodes without looking.
+after it, where the original copies nodes without looking. A missing reader, a non-list first
+value or a list without valid nodes yields no table. A present empty root is rejected by
+`ZrdrSet.LoadFile` with `InvalidDataException`; the editor reports that separately.
 
 ## Evidence & limits
 

@@ -34,10 +34,10 @@
                Up to -GoldenWorkers shots launch at once (default 4, measured bit-identical against
                serial), each still with its own process, log, .out/.err and PNG; the silent-death
                retry runs after the whole batch, serially. A mismatch names the shot and leaves the
-               actual PNG and that shot's engine log in .scratch/goldens/. A moved Enhanced shot
+               actual PNG and that shot's engine log in the configured goldens/ folder. A moved Enhanced shot
                (--graphics=enhanced in its manifest args) is re-rendered once, serially, after the
                batch: back on its pin it is a FLAKE, which keeps the stage out of the red and keeps
-               both frames, their diff and a machine census in .scratch/goldens-failures/<stamp>/;
+               both frames, their diff and a machine census in goldens-failures/<stamp>/;
                off its pin it is MOVED. Every run and every move (re-rendered or not) is appended
                to the main checkout's git-ignored goldens-ledger.jsonl (GoldenLedger.ps1 prints
                it). Each shot is
@@ -236,6 +236,11 @@
     in the perf/hitch stage headers. "original" appends nothing, so the
     default launch argument lists are byte-identical to a run that omits this parameter.
 
+.PARAMETER GoldenOutputRoot
+    An existing absolute directory outside the checkout for golden PNGs, logs and retained failure
+    evidence. The stage creates goldens/ and goldens-failures/ below it. When omitted, the existing
+    .scratch locations are used.
+
 .PARAMETER WaitQuiet
     Before the build, wait until no scripted CSVM Godot runs on this machine (any tree; one with a
     ledger reservation or a scripted flag such as --det or --run-tests), printing the pid, ledger
@@ -293,6 +298,10 @@
     The same run from a git worktree, reading the primary tree's data and Godot.
 
 .EXAMPLE
+    .\scripts\RunTests.ps1 -GoldenOutputRoot 'D:\CSVM-golden-output'
+    The complete gate with every generated golden image kept outside the checkout.
+
+.EXAMPLE
     .\scripts\RunTests.ps1 -GoldenWorkers 1 -SkipUnits -SkipEngine
     The golden stage serial -- the reference path an A/B compares against.
 #>
@@ -320,6 +329,7 @@ param(
     [int]$PerfFrames = 0,
     [ValidateSet("original", "enhanced")]
     [string]$Graphics = "original",
+    [string]$GoldenOutputRoot = "",
     [switch]$WaitQuiet,
     [int]$QuietTimeoutSec = 1800,
     [switch]$RealData,
@@ -361,6 +371,39 @@ $RepoRoot   = Split-Path $PSScriptRoot -Parent
 $ProjectDir = Join-Path $RepoRoot "CSVM"
 $Sln        = Join-Path $ProjectDir "CSVM.sln"
 $ScratchDir = Join-Path $RepoRoot ".scratch"
+$GoldenRoot = $ScratchDir
+if ($GoldenOutputRoot) {
+    $fullyQualified = if ($env:OS -eq "Windows_NT") {
+        $GoldenOutputRoot -match '^(?:[A-Za-z]:[\\/]|\\\\[^\\/]+[\\/][^\\/]+(?:[\\/]|$))'
+    } else {
+        $GoldenOutputRoot.StartsWith("/")
+    }
+    if (-not $fullyQualified) {
+        throw "-GoldenOutputRoot must be an absolute path."
+    }
+    $GoldenRoot = [System.IO.Path]::GetFullPath($GoldenOutputRoot)
+    if (-not (Test-Path -LiteralPath $GoldenRoot -PathType Container)) {
+        throw "-GoldenOutputRoot must name an existing directory: $GoldenRoot"
+    }
+    $comparison = if ($env:OS -eq "Windows_NT") {
+        [System.StringComparison]::OrdinalIgnoreCase
+    } else {
+        [System.StringComparison]::Ordinal
+    }
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    $trimChars = [char[]]@(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar)
+    $repoPrefix = $RepoRoot.TrimEnd($trimChars) + $separator
+    if ($GoldenRoot.Equals($RepoRoot, $comparison) -or $GoldenRoot.StartsWith($repoPrefix, $comparison)) {
+        throw "-GoldenOutputRoot must be outside the checkout: $GoldenRoot"
+    }
+    for ($directory = Get-Item -LiteralPath $GoldenRoot; $directory; $directory = $directory.Parent) {
+        if (($directory.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "-GoldenOutputRoot and its ancestors must not be links or junctions: $GoldenRoot"
+        }
+    }
+}
 # The assembly Godot actually loads. Hashing it is the only honest answer to "did the new build
 # run" (METHOD-6): a dirty tree gives A and B the same commit, and Copy-Item keeps mtimes, so
 # nothing else distinguishes two builds of one revision.
@@ -1632,7 +1675,8 @@ if ($SkipEngine) {
 # ---- goldens -----------------------------------------------------------------------------
 
 $GoldenManifest = Join-Path $RepoRoot "analysis\goldens\manifest.json"
-$GoldenDir      = Join-Path $ScratchDir "goldens"
+$GoldenDir      = Join-Path $GoldenRoot "goldens"
+$GoldenFailuresDir = Join-Path $GoldenRoot "goldens-failures"
 
 function ConvertTo-JsonString {
     param([string]$Text)
@@ -1748,9 +1792,9 @@ if ($SkipGoldensNow) {
     $goldenWorkerCount = [Math]::Max(1, $GoldenWorkers)
     if ($Gaming.Settings) { $goldenWorkerCount = [Math]::Min($goldenWorkerCount, $Gaming.Settings.goldenWorkers) }
     Write-Stage-Banner $(if ($RegenGoldens) { "goldens (regenerating)" } else { "goldens" })
-    # Every launch here carries the .scratch\goldens output path, an argument nothing but this
-    # stage passes -- so the kill cannot reach a live playtest or a hand-run capture.
-    Stop-StrayGodots -Marker "\.scratch\goldens\"
+    # Every launch here carries the golden output path, an argument nothing but this stage passes,
+    # so the kill cannot reach a live playtest or a hand-run capture.
+    Stop-StrayGodots -Marker ($GoldenDir + [System.IO.Path]::DirectorySeparatorChar)
     if (-not $env:SDL_JOYSTICK_DIRECTINPUT) {
         $env:SDL_JOYSTICK_DIRECTINPUT = "0"
     }
@@ -1803,7 +1847,7 @@ if ($SkipGoldensNow) {
         # evidence and let the no-PNG block in the final pass report it once.
         if ($State.ShotCode -eq 124) {
             if ($script:failureRoot -eq $null) {
-                $script:failureRoot = Join-Path $ScratchDir "goldens-failures\$failureStamp"
+                $script:failureRoot = Join-Path $GoldenFailuresDir $failureStamp
             }
             Save-GoldenFailureEvidence -FailureDir $script:failureRoot -ShotName $State.Shot.name `
                 -Attempt $State.Attempt -ShotLog $State.Log -Png $State.Png
@@ -1834,7 +1878,7 @@ if ($SkipGoldensNow) {
         $silentDeath = ((-not $hasPng) -and $State.ShotCode -ne 0)
         if ($silentDeath) {
             if ($script:failureRoot -eq $null) {
-                $script:failureRoot = Join-Path $ScratchDir "goldens-failures\$failureStamp"
+                $script:failureRoot = Join-Path $GoldenFailuresDir $failureStamp
             }
             Save-GoldenFailureEvidence -FailureDir $script:failureRoot -ShotName $State.Shot.name `
                 -Attempt $State.Attempt -ShotLog $State.Log -Png $State.Png
@@ -1956,7 +2000,7 @@ if ($SkipGoldensNow) {
                 # The next run deletes this image at its start, and an unexplained move is only
                 # judged by diffing the moved frame against the pinned one.
                 if ($failureRoot -eq $null) {
-                    $failureRoot = Join-Path $ScratchDir "goldens-failures\$failureStamp"
+                    $failureRoot = Join-Path $GoldenFailuresDir $failureStamp
                 }
                 Save-GoldenFailureEvidence -FailureDir $failureRoot -ShotName $shot.name `
                     -Attempt $state.Attempt -ShotLog $state.Log -Png $state.Png
@@ -1981,8 +2025,8 @@ if ($SkipGoldensNow) {
     # silent-death retry runs. What else held the machine is read here, once, since the runner has
     # no census from the moved attempt's moment: gaming mode names the user's own game, the ledger
     # other trees' scripted Godots, and nvidia-smi, where it is on PATH, any other application.
-    # The run tree's .scratch goes with a worktree; the goldens ledger (GoldenLedgerCore.ps1) keeps
-    # the history and never decides the stage. Every stage that judged shots outside a regeneration
+    # A run's local golden output can go with its worktree; the goldens ledger
+    # (GoldenLedgerCore.ps1) keeps the history and never decides the stage. Every stage that judged shots outside a regeneration
     # writes its run line, so clean runs are counted; nvidia-smi's table, the bulk of a line, is read
     # only when a move is recorded.
     $ledgerCensus = $null

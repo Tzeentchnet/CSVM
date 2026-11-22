@@ -250,5 +250,5 @@ Full validated format documentation lives in **`docs/formats/`**, one page per f
 
 ## Current status / next step
 
-Active plan: [`EDITORPLAN.md`](EDITORPLAN.md), next item A1 typed precipitation editing.
+Active plan: [`EDITORPLAN.md`](EDITORPLAN.md), D33 in progress; C21–C28 and D31–D33 verification pending.
 Run the complete **`.\scripts\RunTests.ps1`** before merging the editor branch.

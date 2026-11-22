@@ -35,17 +35,18 @@ further top-level keys:
   step-by-step reveal, synced to that mission's narration wav. A reader walks the root list for
   keys matching `brief_c*` rather than descending into the dialog.
 
-`map.zrd.json` and `location.zrd.json`, which exist in every mission folder, are **not** this
-screen's data. `map.zrd` is the in-flight cockpit map (a `MAP` node: world-to-map transform,
-open/close anim names, and a `player_icon`/`DB_NAME player` marker), the overlay the pilot opens
-in flight, not the paper map shown at briefing. `location.zrd` is a per-mission list of named world
-points with a position and a rotation pair (`Lighthouse`, `Airport_terminal`, etc.); several
-missions in different chapters ship byte-identical lists (compare `C1/M02` and `C2/M01`, both
-`Airport_terminal`/`Passenger_hangar`/`Crops`/`Coast` at identical coordinates) and one ships
-`null` (`C5/M04`), which is template reuse and an unauthored case respectively, not per-mission
-red-flag data. Neither file is read by anything in `Briefing.zrd`, `sounds.zrd`'s briefing `SETS`,
-or the per-mission `objectives.zrd`; the map and flags the briefing screen shows come entirely
-from the shared dialog's own per-state `SCRIPT`.
+`map.zrd.json` and `location.zrd.json`, which exist in every story mission folder, are **not**
+the briefing's data. `map.zrd` describes an in-flight cockpit map (a `MAP` node with a
+world-to-map transform, open/close animation names, and a `player_icon`/`DB_NAME player` marker),
+not the briefing parchment. `location.zrd` contains named records with position- and
+rotation-shaped values (`Lighthouse`, `Airport_terminal`, etc.). Several missions in different
+chapters ship identical lists, and `C5/M04` carries no named records (a packed reader can retain the
+empty inner list as a null value). That reuse does not establish a retail consumer or a cockpit-map
+role for the records. CSVM has no named-location point consumer;
+the shared dialog's per-state `SCRIPT` supplies the briefing map and flags, while mission
+`objectives.zrd` supplies the note. Generic animation scanning can still inspect a location reader
+if it contains animation data. See [campaign authoring](missions/campaign-authoring.md) for the
+editor and runtime boundaries.
 
 ## Dialog chrome: `PRIMITIVES` and `BUTTONS`
 
@@ -226,8 +227,8 @@ for every `N`.
   followed by a list. This applies to `Briefing.zrd`'s root list and its `SCRIPT` lists as well.
 - **`WaitForMarker`'s argument indexes the narration's cue points sorted by sample offset, never
   by cue id.** See the reveal-script section above for the evidence and the field layout.
-- `map.zrd`/`location.zrd` belong to the in-flight cockpit map, not this screen (see "Conceptual
-  model"); do not route briefing map/flag work through them.
+- `map.zrd`/`location.zrd` are not this screen's inputs; do not route briefing map or flag work
+  through them.
 - A `Line` element (`TLINE`, seen in `brief_c12`) is rare, at most one per mission; do not assume
   every mission draws a connector line between two of its pins.
 

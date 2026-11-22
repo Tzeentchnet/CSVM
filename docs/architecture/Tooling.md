@@ -90,16 +90,161 @@ A plane's mounted `cockpit1` (`PlaneBuilder`'s direct child) never rides in its 
 ## src/Tooling/CampaignRawList.cs
 The shared exact-index lookup over raw alternating reader lists. It mirrors `ZrdrDict`'s
 last-duplicate and bare-key behavior while retaining selected value indexes for typed editors. It
-also locates first-valid immediate finite scalars and vectors, and first immediate list values,
+also locates first immediate strings, scalars, lists and vectors, with finite variants where needed,
 for readers that use raw walkers. `CampaignPlayerInit.cs`, `CampaignWeatherCloudBand.cs`,
-`CampaignWeatherWind.cs` and `CampaignWeatherFog.cs` are its consumers.
+`CampaignWeatherWind.cs`, `CampaignWeatherPrecipitation.cs`, `CampaignWeatherFog.cs`,
+`CampaignWeatherLighting.cs`, `CampaignMissionZeppelins.cs` and `CampaignMissionGenerators.cs`
+are its consumers.
 
 ## src/Tooling/CampaignMissionDocument.cs
-One story mission's complete raw `ZrdrFile` set as an editable document. It deep-copies the source,
-permits type-preserving string and float leaf edits, and exports every reader in source order to
-the canonical external-mod ZIP. Export writes beside neither the retail source nor the checkout,
-refuses a preferred unpacked sibling, reopens the temporary ZIP and compares names, trees, nulls
-and float bits before replacing the destination. Read `CampaignMissionEditorPlugin.cs` next.
+One mission's complete raw `ZrdrFile` set as an editable deep copy. Raw scalars and all typed
+adapters publish atomic operations; objective keys only change through validated swaps. Operations
+also cover start-animation moves, target replacement or chapter copy, and danger-zone edits.
+Revision follows history, a monotonic generation rejects stale bindings, and the clean marker follows
+the last export. Export writes every reader in source order to the canonical external-mod ZIP,
+refuses a preferred unpacked sibling, and reopens the temporary ZIP to compare names, trees, nulls
+and float bits before replacement. Read `CampaignMissionEdit.cs` and
+`CampaignMissionEditorPlugin.cs` next.
+
+## src/Tooling/CampaignMissionEdit.cs
+Immutable operations retain document identity, before/after state and exact raw snapshots, including
+float bits and structural reader changes. A document-bound session registers completed edits and
+replays only matching operations; failed registration cannot leave a replayable edit. Callbacks
+refresh after successful history transitions or rebind after registration rollback. The document
+validates all affected slots before writing and preserves identity for start-animation permutations.
+
+## src/Tooling/CampaignMissionUndoBridge.cs
+The Godot 4.7 editor bridge records already-applied operations in global editor history with
+`CommitAction(false)`. A bound reference keeps the callback target alive; mission replacement or
+plugin exit invalidates its session and snapshots without clearing other editor history. Stale
+actions are inert. A publication signal rejects nested assigned actions and rolls their edits back.
+Undo and redo call the dock's refresh after the document notifies projections.
+
+## src/Tooling/CampaignMissionDependencyBundle.cs
+The selected campaign mission's read-only dependency set: shared readers, chapter world, highest
+available chapter texture tier, chapter readers, chapter and mission compiled animations, global
+messages, interpreter scripts, and parsed mission setup. Each dependency carries its exact source
+path and a ready, missing, unavailable, empty-or-unavailable, or not-checked state. The bundle
+materializes models without owning export, resources, Godot nodes, or the source, and a fresh
+generation identifies each selection. Read `Spec/GameData.cs` for its lightweight retail loader.
+
+## src/Tooling/CampaignMissionImport.cs
+Strict import of an existing complete mission `zrdr.zip` or unpacked `zrdr` directory. It rejects
+nested, unsupported, duplicate, malformed, partial and precedence-conflicted layouts before
+building a deep-copied document. Retail reader names establish completeness only; retail values
+never fill omissions. Mod-only readers and observed order remain in the imported scope, while the
+result retains whether the effective owner is a ZIP or directory.
+
+## src/Tooling/CampaignReferenceRecords.cs
+Immutable mission-reference occurrences, exact raw locations, field-specific resolution rules,
+verdicts, coverage issues and snapshots. A snapshot distinguishes resolved, newly missing,
+inherited missing, unverified and duplicate-suppressed references so an unchanged retail or
+existing mod scope remains exportable without hiding its inherited caveats.
+
+## src/Tooling/CampaignReferenceExtractor.cs
+Source-preserving projections for objective, roster, target, generator, zeppelin, pickup,
+animation, setup and ancillary references. Startup names follow the selected reader's exact entry
+leaves. Target paths follow mission or chapter scope; zeppelins follow selected prefixes and parts.
+Roster, generator, danger-zone and objective references follow runtime readers and directive slots.
+Net IDs follow runtime integer conversion, and marker messages follow its flag threshold. Other
+readers retain their own duplicate rules. Runtime-staged or asset-backed coverage remains
+unverified. `location.zrd` receives a nonblocking family issue while the generic
+`ANIMATION_DEFINITION_FILE` scan still applies to it.
+
+## src/Tooling/CampaignObjectiveReferences.cs
+Exact-case, first-directive objective references follow the contiguous selected runtime blocks,
+while briefing messages include every case-insensitive keyed identity the briefing reader uses.
+Each target argument is a separate bare node or scoped path, and each `INACTIVEn` is one world
+path. Raw leaf paths, shadowed links and unresolved or staged references remain visible.
+`CampaignReferenceExtractor.cs` retains the separate generator, danger-zone and generic animation
+projections.
+
+## src/Tooling/CampaignReferenceIndex.cs
+Field-specific indexes resolve mission references against the document and dependency bundle.
+Startup names use the compiled-first `AnimProgram` inspection and its scope gates; unavailable
+inputs remain unverified. Target definitions use the world matcher, generator origins the host
+subtree, and roster net IDs nonempty chapter graphs. Zeppelin gasbags without a matching healthy
+node remain unverified. Danger gates follow the world, AI ribbon and selected objective consumers;
+disabled objective gates are suppressed and danger slots are not objective-graph references.
+
+## src/Tooling/CampaignReferenceDiagnostics.cs
+The selection-bound owner of continuous cross-reader diagnostics. It snapshots one document
+revision, extracts and resolves all occurrences, publishes one immutable aggregate, and marks
+itself stale on subsequent edits. The first snapshot records inherited misses; target and danger-zone
+identities survive their structural edits, while startup entries retain identity across reorders.
+Objective danger references retain raw leaf identity across number swaps. Only new confirmed misses
+and blocking dependency or parse errors prevent export.
+
+## src/Tooling/CampaignMissionTargets.cs
+Exact-index target-entry views follow `MissionTargets`' whole-file scope selection, last-pair
+rules and case-insensitive last-node replacement. Label edits preserve unknown pairs and tails;
+flag removal refuses extra payload. Chapter tables are read-only until an explicit, revision-bound
+deep copy creates a mission-local override. World and message references publish through
+`CampaignReferenceDiagnostics.cs`.
+
+## src/Tooling/CampaignMissionZeppelins.cs
+Exact-index views of mission zeppelin poses, motion, behavior and existing damage-list prefixes.
+The adapter follows the reader's last-pair and variable-width rules, identifies shadowed or
+unmatched parts, and validates a complete selected row before a document batch. Absent and
+unsupported fields stay raw. `CampaignReferenceExtractor.cs` projects their references and
+`Mech3/Zeppelins.cs` owns the runtime reader.
+
+## src/Tooling/CampaignMissionGenerators.cs
+Exact-index views of existing mission generator timing, origins, templates, nets and door fields.
+The adapter validates each selected row before a document batch and leaves unknown or
+unselected data raw. Origin offsets are derived in the existing chapter host's source frame.
+`Mech3/EnemyGenerators.cs` owns the reader and `CampaignReferenceDiagnostics.cs` checks joins.
+
+## src/Tooling/CampaignMissionObjectives.cs
+Revision-bound, exact-index views of selected `OBJECTIVEn` blocks retain their raw directive
+order, duplicates and unknown data. Existing identity, timing, objective-link, inactive-path,
+target-path and help-message leaves validate as complete rows before a document batch. Number
+swaps validate every block and known link before one atomic batch, refusing gaps, unknown
+directives and ambiguous links. They do not preserve rotating runtime completion order or verify
+external consumers. `Session/Objectives/ObjectiveScript.cs` owns runtime selection;
+`CampaignObjectiveReferences.cs` supplies reference diagnostics.
+
+## src/Tooling/CampaignMissionStartAnimations.cs
+Revision-bound views select each runtime-consumed start-animation entry by exact raw index.
+Renaming changes only its first string; reordering moves complete entries among selected slots in one
+document revision. Unknown entries, tails and unrelated reader data remain in the canonical tree.
+`CampaignReferenceDiagnostics.cs` supplies the per-entry verdicts.
+
+## src/Tooling/CampaignMissionReaderSummaries.cs
+Read-only structural map information, multiplayer spawn values from `Flight/Modes/SpawnPoints.cs`,
+animation-index paths and effective program counts. Animation inspection uses the mission's
+read-only dependency bundle and reports unavailable inputs instead of inventing a complete program.
+`CampaignMissionEditorPlugin.cs` presents these projections alongside startup editing.
+
+## src/Tooling/CampaignMissionDangerZones.cs
+Revision-bound mission-only danger-zone override views follow the selected reader, last alternating
+keys, direct membership strings and last valid numeric pair. The adapter validates one row before
+replacing its raw root, preserving unknown data and untouched tails. Objective blocks and chapter
+gate verdicts are read-only; ribbon samples retain the winning gamez source index and use the
+runtime's numeric-index selection before setup.
+
+## src/Tooling/CampaignDangerRibbonPreview.cs
+A non-interactive top-down X/Z plot of the selected chapter ribbon's sampled source geometry.
+The dock owns labels and selection; the plot does not edit gamez or apply mission setup.
+
+## src/Tooling/CampaignMissionPreview.cs
+Revision-bound player, roster, target, generator, zeppelin and danger-ribbon projections over typed
+readers and the preview world. Each selection retains its scope, reader or world source, and raw
+path, with related mission paths where applicable. Reader snapshots coalesce changes, replace only
+changed overlay layers, and invalidate structurally displaced selections. Named locations have no
+established point consumer. The model unsubscribes on disposal.
+
+## src/Tooling/CampaignMissionPreviewWorld.cs
+Builds a collision-free, transient chapter world, applies mission setup and indexes original gamez
+names and indices for scoped target and host-relative generator resolution. Zeppelin poses are
+placed on temporary hosts and restored before reapplication. Editor-only shader defaults are shared
+while previews are open, without overwriting existing globals. Disposal frees the world and textures.
+Preview-owned materials are removed from the shared shader tracking table on disposal.
+
+## src/Tooling/CampaignMissionPreviewPanel.cs
+The opt-in viewport owns derived handles, ribbons, camera controls and selection rows. It identifies
+mission, chapter and world sources and can navigate the first mission source in the raw tree. It
+rebuilds changed layers only and frees the viewport and world on close, rebind or plugin exit.
 
 ## src/Tooling/CampaignPlayerInit.cs
 The typed view over `objectives.zrd`'s complete `PLAYER_INIT` record. It follows `ZrdrDict`'s
@@ -107,18 +252,21 @@ last-duplicate rule, retains each field's exact raw-list index, and writes throu
 `CampaignMissionDocument` only. Position and authored attitude remain floats, throttle is a
 fraction, and speed is exposed in metres per second through `SpawnPoints.SpeedScale`. The pending
 flag is read-only.
+The preview uses the selected file and position path directly.
 
 ## src/Tooling/CampaignRosterStarts.cs
-Exact-index typed views over the complete spawn prefix of every variable-width `aiv.zrd` roster
-block. Position, yaw, team and mission-logic group write through `CampaignMissionDocument`;
-enabled/template state, names, net ids and every trailing field remain raw. The human `player`
-block is identified separately because campaign placement reads `PLAYER_INIT`. Read
-`Mech3/AiSkills.cs` for the runtime interpretation.
+Exact-index typed views over the complete spawn prefix and independent existing AI fields of
+variable-width `aiv.zrd` blocks. Supported net choices, durability, flags, ratings, maneuver mask,
+target and marker text, scripted path and voice write in validated atomic groups through
+`CampaignMissionDocument`. Names, enabled flags, template headers, unsupported values and
+unknown tails remain raw. The human `player` block is read-only because campaign placement reads
+`PLAYER_INIT`. Read `Mech3/AiSkills.cs` for the runtime interpretation.
 
 ## src/Tooling/CampaignWeatherColor.cs
 The shared authored-color rule for typed weather editors. It identifies normalized versus 0–255
 triples with the runtime's strict component-above-1 test and validates edits without silently
-changing that encoding. `CampaignWeatherCloudBand.cs` and `CampaignWeatherFog.cs` use it.
+changing that encoding. `CampaignWeatherCloudBand.cs`, `CampaignWeatherPrecipitation.cs`,
+`CampaignWeatherFog.cs` and `CampaignWeatherLighting.cs` use it.
 
 ## src/Tooling/CampaignWeatherCloudBand.cs
 The exact-index typed view over `weather.zrd`'s `CLOUD_COVER` geometry and optional colors. It
@@ -126,6 +274,12 @@ follows the outer alternating dictionary's last-list selection, the first valid 
 geometry scalars, and the first immediate top/bottom color lists, matching `Effects/Weather.cs`.
 It validates the band, opaque core, and each existing color before writing. Missing colors,
 duplicate and unknown fields, and every other weather block stay in the raw mission document.
+
+## src/Tooling/CampaignWeatherPrecipitation.cs
+The exact-index typed view over `weather.zrd`'s top-level precipitation siblings. It follows the
+runtime's first-match rules for type, color, drift, gravity, optional particle count and alpha
+gradient. Writes keep absent particles absent, retain raw color encoding and list tails, and leave
+duplicates, unknown values and unrelated weather data in the mission document.
 
 ## src/Tooling/CampaignWeatherWind.cs
 The exact-index typed view over `weather.zrd`'s bare-scalar `WIND` block. It follows the outer
@@ -139,14 +293,35 @@ without their `SW_*` twins. Each view edits fog color, distance range and altitu
 retaining the source's normalized or 0–255 color encoding. Unknown and duplicate values remain in
 the raw mission document. Read `Effects/Weather.cs` for the runtime interpretation.
 
+## src/Tooling/CampaignWeatherLighting.cs
+Dynamic exact-index views over each runtime zone's selected clip and sunlight lists. Each view
+edits clip far, diffuse and ambient scalars, both colors, the bicolored flag, and existing shading
+orientation components. Runtime-fallback fields remain independently optional and are never
+created. Last-list selection, source color encoding, vector tails, duplicates, unknown fields,
+zone order, and `SW_*` twins stay intact. Read `Effects/Weather.cs` for the runtime interpretation.
+
+## src/Tooling/CampaignWeatherDiagnostics.cs
+The engine-free, read-only weather summary over the editable mission document. It rebuilds
+`Effects/WeatherState`, formats cloud, probe, zone, wind, precipitation and lighting labels, and
+produces normalized cloud-band and fog-range plot values. It deliberately has no chapter geometry
+or fog-volume dependency, so its camera-state result is labelled band-only. Read
+`CampaignWeatherPreview.cs` for its Godot view.
+
+## src/Tooling/CampaignWeatherPreview.cs
+The Godot `Control` that draws `CampaignWeatherDiagnostics` as a vertical cloud-band plot and a
+horizontal selected-zone fog-range plot. It draws no text or chapter geometry; the dock owns the
+labels and the explicit dependency boundary. Read `CampaignMissionEditorPlugin.cs` for refresh and
+selection ownership.
+
 ## src/Tooling/CampaignMissionEditorPlugin.cs
-The enabled Godot editor dock over `CampaignMissionDocument`: source and mod-folder pickers, the 24
-campaign rows, one reader's raw tree, editable scalar cells, and typed player-start, roster-start
-and weather cloud-band/wind/fog tabs. It opens folders and disc images through `GameFileSource`, so
-the editor and a flight decode the same bytes. Structure, nulls, other typed panels and world
-preview remain outside this dock.
-Format and workflow:
-[../formats/missions/campaign-authoring.md](../formats/missions/campaign-authoring.md).
+The enabled Godot dock over `CampaignMissionDocument` loads retail and existing-mod mission
+scopes, dependencies and raw scalar cells. Typed tabs cover starts, roster AI fields, targets,
+zeppelins, generators, objectives, danger-zone overrides, startup animations and weather. It shows
+continuous reference verdicts, read-only reader summaries and explicit chapter-target copying.
+The read-only Preview tab presents disposable world overlays and mission source navigation. The
+dock refreshes typed views and diagnostics on editor-history replay and refuses export on new
+confirmed reference errors; other structural edits remain outside it.
+Format and workflow: [../formats/missions/campaign-authoring.md](../formats/missions/campaign-authoring.md).
 
 ## src/Tooling/SyntheticData.cs
 `--synthetic-data`'s tree: an `extracted/` written into `.scratch/synthetic-data/<pid>/`, which

@@ -130,6 +130,9 @@ internal sealed class CampaignDangerZones
     internal static HashSet<string> ReadDisabled(ZrdrSet missionZrdr) =>
         ReadOverrides(missionZrdr).Disabled;
 
+    internal static bool HasGateGeometry(GameZ gamez, string pathName) =>
+        TryReadGates(gamez, pathName, out _, out _);
+
     /// <summary>One armed zone's scrapbook binding: the objective number its mission gives it, and
     /// whether it photographs at all. Answers false for a name this mission did not arm. An
     /// objective of -1 is a zone the mission's <c>objective_numbers</c> does not name, which the

@@ -85,6 +85,23 @@ public sealed class GameData
         };
     }
 
+    internal static GameData LoadCampaignEditor(IGameFileSource game)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+
+        return new()
+        {
+            Interp = Read(
+                game, null, InterpScripts.GamePath,
+                () => InterpScripts.Load(game), InterpScripts.FromExtracted, null),
+            Messages = Read(
+                game, null, Messages.GameFile,
+                () => Messages.Load(game), Messages.FromExtracted, new Messages()),
+            Zrdr = ReaderScope(game, null, RootZrdrPath).Value,
+            LoadChapter = Chapters(game, null),
+        };
+    }
+
     private static ModdingFolder? Mods(string? modFolder)
     {
         if (modFolder == null)

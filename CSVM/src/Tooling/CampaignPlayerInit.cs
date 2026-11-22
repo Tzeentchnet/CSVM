@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using CSVM.Flight.Modes;
@@ -58,6 +59,11 @@ public sealed class CampaignPlayerInit
             Vector(2, 2),
             Scalar(3),
             Scalar(4) * SpawnPoints.SpeedScale);
+
+    internal int FileIndex => _fileIndex;
+
+    internal ImmutableArray<int> PositionPath =>
+        ImmutableArray.Create(0, _valueIndex, 1);
 
     /// <summary>Binds the objectives reader's last <c>PLAYER_INIT</c>. Returns false with a
     /// specific problem when the reader, key, or complete five-element shape is absent.</summary>
@@ -133,20 +139,23 @@ public sealed class CampaignPlayerInit
             }
         }
 
-        bool changed = false;
-        changed |= SetVector(1, 0, state.X);
-        changed |= SetVector(1, 1, state.Y);
-        changed |= SetVector(1, 2, state.Z);
-        changed |= SetVector(2, 0, state.PitchDeg);
-        changed |= SetVector(2, 1, state.YawDeg);
-        changed |= SetVector(2, 2, state.RollDeg);
-        changed |= SetScalar(3, state.ThrottleFrac);
-        if (speedChanged)
+        return _document.BatchLeaves("Edit player start", () =>
         {
-            changed |= SetScalar(4, authoredSpeed);
-        }
+            bool changed = false;
+            changed |= SetVector(1, 0, state.X);
+            changed |= SetVector(1, 1, state.Y);
+            changed |= SetVector(1, 2, state.Z);
+            changed |= SetVector(2, 0, state.PitchDeg);
+            changed |= SetVector(2, 1, state.YawDeg);
+            changed |= SetVector(2, 2, state.RollDeg);
+            changed |= SetScalar(3, state.ThrottleFrac);
+            if (speedChanged)
+            {
+                changed |= SetScalar(4, authoredSpeed);
+            }
 
-        return changed;
+            return changed;
+        });
     }
 
     private static bool Complete(object? value) =>

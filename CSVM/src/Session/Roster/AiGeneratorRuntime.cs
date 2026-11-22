@@ -57,6 +57,10 @@ public sealed partial class AiGeneratorRuntime : Node
     /// <summary>The most recent spawn's net pick, per generator node.</summary>
     public readonly Dictionary<string, string> SpawnedNet = new(StringComparer.OrdinalIgnoreCase);
 
+    // A surface launch is placed this far above its first take-off path point, and opens the
+    // throttle where a carrier drop closes it (FUN_00451bf0's multi-point branch).
+    internal const float SurfaceLaunchLift = 0.2f;
+
     // The mission-script host's one credit callback. 801 to 803 live in the same host in the
     // original and reactivate the first still-deactivated bhat aircraft, which CampaignDirector
     // answers from its own link in this chain.
@@ -70,9 +74,6 @@ public sealed partial class AiGeneratorRuntime : Node
     // FUN_00452450 preserves the carrier's world velocity, then adds this vertical component.
     private const float CarrierLaunchDownwardSpeed = 22.352f;
 
-    // A surface launch is placed this far above its first take-off path point, and opens the
-    // throttle where a carrier drop closes it (FUN_00451bf0's multi-point branch).
-    private const float SurfaceLaunchLift = 0.2f;
     private const float SurfaceLaunchThrottle = 1f;
 
     // FUN_0048a110 adds this to the velocity's Y on reaching the last waypoint of an aircraft-class

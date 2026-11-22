@@ -159,9 +159,9 @@ A campaign mission's own danger zones: the `dzpathN` names its `objectives.zrd` 
 against the world's gate geometry, with `Load` answering null when a mission arms none. The same
 file's `objective_numbers` and `nosnapshot` ride on each armed zone and `TryZone` answers them: that
 number is the zone's completed-objective bit and names the scrapbook photograph it writes. A zone is
-a route ribbon plus a material-matched pair of gate polygons, crossed by a segment passing inside
-each in either order, the rule `Flight/Modes/StuntMission.cs` reads off `ia.json`'s zone list; the two differ by authoring surface, not by mechanism. Crossings are tracked per human, each with its own previous position.
-Gate decode: [../formats/missions.md](../formats/missions.md).
+a route ribbon plus a material-matched pair of gate polygons, crossed in either order, as in
+`Flight/Modes/StuntMission.cs`. Crossings track each human's previous position. `HasGateGeometry`
+exposes the same first-node gate read to the editor. Decode: [../formats/missions.md](../formats/missions.md).
 
 ## src/Session/Campaign/CampaignSnapshot.cs
 The campaign Danger Zone photograph through `Flight/Modes/DangerZonePhotograph.cs`, written into the flying profile's
@@ -499,14 +499,14 @@ the overlay's read of the same offset. Every follower the session builds shares 
 Census of the shipped shapes: [../formats/ai-nets.md](../formats/ai-nets.md).
 
 ## src/Session/Roster/AiGeneratorRuntime.cs
-Runs a mission's egen generators behind `--generators`: one `GeneratorCycle` per surviving
-`EnemyGeneratorDef`, host altitude read live off the resolved host node, and spawns through the
-handed roster callback at the origin node's live position. An air host drops its launch; a surface
-host flies its own take-off path held to the decoded release point. Doors play the authored anims
-scoped to the host, `GrantWaveCapacity` is the one credit, and `NotifyHostDied` starts the wreck
-grace. `AircraftLaunched` reports each aircraft launch; after `Replicate` the spawner refuses the
-cycles' own and `LaunchReplicated` builds the host's. Every drop, launch and door prints an `egen:`
-line. Decode: [../formats/mission-entities/enemy-generators.md](../formats/mission-entities/enemy-generators.md).
+Runs a mission's egen generators behind `--generators`, with one `GeneratorCycle` per surviving
+`EnemyGeneratorDef` and live host altitude from the resolved world node. It spawns through the
+roster callback at the origin node's live position. An air host drops its launch; a surface host
+flies its take-off path to the decoded release point. Doors play host-scoped authored anims,
+`GrantWaveCapacity` supplies the one credit, and `NotifyHostDied` starts the wreck grace.
+`AircraftLaunched` reports launches; after `Replicate`, only `LaunchReplicated` builds them.
+The editor preview shares the surface launch's world-up lift constant. Read `GeneratorCycle.cs`
+for timing and [the format decode](../formats/mission-entities/enemy-generators.md) for its source.
 
 ## src/Session/World/ZeppelinRuntime.cs
 Runs a mission's zeppelins behind `--zeppelins`: a `ZeppelinDef` whose node and net resolve is

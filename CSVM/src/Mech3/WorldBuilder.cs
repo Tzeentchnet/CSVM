@@ -450,61 +450,71 @@ public sealed class WorldBuilder
         // the player; everything else goes into the static world root.
         var deck = new Node3D { Name = "cloud_deck" };
 
-        var roots = new List<int>(world.Children);
-        if (world.PartitionNodes != null)
-            roots.AddRange(world.PartitionNodes);
-
-        FindCloudDeck(world, roots);
-        _deckUndimmedMeshes.Clear();
-        _scene.CastsNoShadow = GroundSheetTest(world);
-        _cell = CellOf(world);
-        RankConflicts(roots);
-        int replacedBefore = _scene.ReplacedMeshCount;
-        foreach (var idx in roots)
-            Add(root, deck, idx);
-        if (_scene.ReplacedMeshCount > replacedBefore)
+        try
         {
-            Log.Info("world", $"HD models: {_scene.ReplacedMeshCount - replacedBefore} mesh instance(s) of {worldName} drawn from the model pack");
+            var roots = new List<int>(world.Children);
+            if (world.PartitionNodes != null)
+                roots.AddRange(world.PartitionNodes);
+
+            FindCloudDeck(world, roots);
+            _deckUndimmedMeshes.Clear();
+            _scene.CastsNoShadow = GroundSheetTest(world);
+            _cell = CellOf(world);
+            RankConflicts(roots);
+            int replacedBefore = _scene.ReplacedMeshCount;
+            foreach (var idx in roots)
+                Add(root, deck, idx);
+            if (_scene.ReplacedMeshCount > replacedBefore)
+            {
+                Log.Info("world", $"HD models: {_scene.ReplacedMeshCount - replacedBefore} mesh instance(s) of {worldName} drawn from the model pack");
+            }
+
+            // A per-build census distinguishes no zoned content from a stopped gate.
+            var gated = _scene.ZoneGatedMeshes;
+            Log.Info("world", $"zone gate: {gated[1]} / {gated[2]} / {gated[3]} mesh instance(s) on zone 1 / 2 / 3 (deck zone_id {CloudDeckZoneId}, fvol zone_id {FogVolumeZoneIdOf(_gamez)})");
+
+            if (deck.GetChildCount() > 0)
+            {
+                // ⚠ Count authored tiles with `_deckNodes.Count`; the rim extension is another deck child.
+                AddDeckAnnulus(deck, MergedLocalAabb(deck));
+                root.AddChild(deck);
+                CloudDeck = deck;
+                // The deck covers the whole map, so a shadow-casting one puts the entire world in
+                // shade. Its overcast is already in the authored SUNLIGHT the sun is driven from.
+                DisableShadows(deck);
+                Log.Info("world", $"cloud deck: {_deckNodes.Count} tiles at y={_deckAltitude} ({_deckCoverage:P0} of the map)");
+            }
+            else
+            {
+                // Never parented, so nothing else would free it.
+                deck.Free();
+            }
+
+            // A post-walk pass because the clusters are nested too deep for a walk root to recognise.
+            // Logged per chapter so a real "none" cannot read like a census that stopped working.
+            CollectCloudClusters(root);
+            if (_cloudClusters.Count > 0)
+            {
+                Log.Info("world", $"cloud clusters: {_cloudClusters.Count} placed 'cloudparent' subtree(s)");
+                // Billboards face the camera, so their light-pass silhouette must not shade the ground.
+                foreach (var cluster in _cloudClusters)
+                    DisableShadows(cluster);
+            }
+
+            Log.Info("world", $"sun shadow: {_scene.ShadowlessMeshes.Count} terrain/water mesh instance(s) cast none");
+            _builtWorld = world;
+            return root;
         }
-
-        // Said out loud per build because "0 / 0 / 0" from a gate that stopped stamping is
-        // otherwise indistinguishable from a chapter that authors no zoned content.
-        var gated = _scene.ZoneGatedMeshes;
-        Log.Info("world", $"zone gate: {gated[1]} / {gated[2]} / {gated[3]} mesh instance(s) on zone 1 / 2 / 3 (deck zone_id {CloudDeckZoneId}, fvol zone_id {FogVolumeZoneIdOf(_gamez)})");
-
-        if (deck.GetChildCount() > 0)
+        catch
         {
-            // ⚠ The tile census below must keep reading `_deckNodes.Count`; the rim extension
-            // added here is a child of `deck`, so `GetChildCount()` would count it as a tile.
-            AddDeckAnnulus(deck, MergedLocalAabb(deck));
-            root.AddChild(deck);
-            CloudDeck = deck;
-            // The deck covers the whole map, so a shadow-casting one puts the entire world in
-            // shade. Its overcast is already in the authored SUNLIGHT the sun is driven from.
-            DisableShadows(deck);
-            Log.Info("world", $"cloud deck: {_deckNodes.Count} tiles at y={_deckAltitude} ({_deckCoverage:P0} of the map)");
+            if (ReferenceEquals(CloudDeck, deck))
+                CloudDeck = null;
+            if (GodotObject.IsInstanceValid(root))
+                root.Free();
+            if (GodotObject.IsInstanceValid(deck))
+                deck.Free();
+            throw;
         }
-        else
-        {
-            // Never parented, so nothing else would free it.
-            deck.Free();
-        }
-
-        // A post-walk pass because the clusters are nested too deep for a walk root to recognise.
-        // Logged per chapter so a real "none" cannot read like a census that stopped working.
-        CollectCloudClusters(root);
-        if (_cloudClusters.Count > 0)
-        {
-            Log.Info("world", $"cloud clusters: {_cloudClusters.Count} placed 'cloudparent' subtree(s)");
-            // Cloud sprites are alpha billboards facing the camera, so their silhouette in a light
-            // pass is whatever they happen to be turned to; ground shade from them is not authored.
-            foreach (var cluster in _cloudClusters)
-                DisableShadows(cluster);
-        }
-
-        Log.Info("world", $"sun shadow: {_scene.ShadowlessMeshes.Count} terrain/water mesh instance(s) cast none");
-        _builtWorld = world;
-        return root;
     }
 
     /// <summary>Builds ONE named subtree as a standalone stage instead of the whole world

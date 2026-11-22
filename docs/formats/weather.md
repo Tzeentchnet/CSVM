@@ -658,6 +658,22 @@ light the baked-vertex world. List-valued keys:
 | `SUNLIGHT_COLOR_DIFFUSE` / `SUNLIGHT_COLOR_AMBIENT` | light colours (usually white) |
 | `SUNLIGHT_STATIC` / `SUNLIGHT_BICOLORED` | flags |
 
+The 24 campaign readers carry 48 runtime zones. Every one has a selected `CLIP_RANGES` pair,
+single-float `SUNLIGHT_DIFFUSE`, `SUNLIGHT_AMBIENT`, and `SUNLIGHT_BICOLORED` lists, two
+three-component sunlight colors, and a three-component orientation whose roll is zero. These are
+also the canonical widths throughout the wider install census. `WeatherState` nevertheless
+defines independent fallbacks for every list and permits a two-component orientation, so the
+campaign editor treats each field as independently optional for modified readers. A missing list
+stays disabled and is not created.
+
+The Light tab follows the zone dictionary's last-list selection for the outer `ZONE<digit>` block
+and for every inner field. It excludes `SW_ZONE*`, retains duplicate lists and vector tails, and
+keeps each sunlight color in its authored normalized or 0-255 encoding. It edits only
+`CLIP_RANGES[1]`, the far value retained by `ZoneWeather`; the near value remains raw. Clip far is
+informational in CSVM because the remake deliberately keeps its larger camera far plane. Sunlight
+orientation stays in authored degrees and is labelled as the shading direction. The tab does not
+expose `SUNLIGHT_ACTIVE` or `SUNLIGHT_STATIC`, which `WeatherState` does not consume.
+
 `DIFFUSE`/`AMBIENT` **vary per mission and track the scene**: C1B night `0.6 / 0.15`
 (dim), C1/IA1 overcast `1.2 / 0.25`, C1C day missions `2.0 / 0.6` (bright). This is the
 data source for the remake's **world-brightness calibration** (item 6): the remake renders

@@ -259,7 +259,10 @@ every suite inside one `_Ready` call without yielding a frame, so no suite there
 anything. A mismatch leaves the actual PNG and that shot's log in
 `.scratch/goldens/<shot>.{png,log}`. **`-RegenGoldens`** re-renders every shot and rewrites
 `manifest.json` in place, byte-identically apart from the hash lines that moved; GOLD-1 says when
-that is the right answer.
+that is the right answer. **`-GoldenOutputRoot <absolute folder>`** puts `goldens/` and
+`goldens-failures/` below an existing directory outside the checkout instead. The runner rejects
+relative paths, checkout paths, links and junctions so a no-screenshots-in-repository run cannot
+silently write back through an alias.
 
 **A shot marked `"release": true` in the manifest runs only under `-Release`**, the battery before
 a release. Every other run skips it, and its stage line counts the skipped shots ("17 release-only

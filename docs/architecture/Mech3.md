@@ -282,7 +282,7 @@ subtree, skipping `horizon` (`BuildHorizon` builds the camera-anchored skydome s
 and the cloud-scatter set cannot drift apart) and `dzpaths`. Every node the walk builds is stamped
 with its own `zone_id` visual layer (`SceneBuilder`, `zoneGate: true`), so the camera's weather
 state culls it; the cloud deck and the dome are the two exceptions, camera-anchored per rig and
-taking the zone rule through `Session/WeatherRig.Tick` instead.
+taking the zone rule through `Session/WeatherRig.Tick` instead. A failed build frees both world and deck roots.
 `HideUnplacedEntities`/`RestorePlacedEntities` switch off, then restore, the entities a chapter
 parks at the world origin awaiting mission placement; `NoCollisionNode` exempts sky, cloud and
 billboard geometry and anything authoring `intersect_surface: false` from colliders. The static
@@ -663,14 +663,12 @@ Unit normalization happens HERE so handlers see one convention: reader rotations
 tokens (to numbers). See [../formats/anim-definitions.md](../formats/anim-definitions.md).
 
 ## src/Mech3/AnimProgram.cs
-Merges the compiled and reader front-ends for one mission plus `StartAnims` (`Load`: zrdr scopes as
-paths, the two compiled archives as models); `ScriptFor` resolves an event slot to its archive SI script. Two gates run first, both only with a compiled mission
-manifest present so a reader-only extraction is untouched: the mission-scope gate against that
-manifest, and the shared-scope FILE gate (`ListedSharedFiles`, reported as `SharedFilesSkipped`).
-Whatever survives is deduplicated on the (`NAME`, `ANIMATION_NAME`) pair in `Add`, compiled winning
-because the archives load first, and the winner takes over the twin's reader-only `PERSIST_LOG`.
-Which world ENTITIES a mission shows is `MissionSetup.cs` plus the interp boot script. Scope rules:
-[../formats/anim-definitions.md](../formats/anim-definitions.md), "Mission library scope".
+Merges compiled archives and the three reader scopes into a mission's definitions and ordered
+`StartAnims`. A compiled mission manifest gates mission definitions and shared/chapter reader
+files; identity pairs are deduplicated with compiled definitions first. `Load` merges reader-only
+`PERSIST_LOG` into each winner, while `LoadForInspection` shares its lookup and gates without
+changing compiled inputs or constructing a runtime-ready program. `ScriptFor` resolves an event
+slot to its archive SI script. Scope rules are in [../formats/anim-definitions.md](../formats/anim-definitions.md).
 
 ## src/Mech3/TextureCycler.cs
 Runs the gamez material `cycle` flipbooks (water, surf, wakes, crowds) by swapping `albedo_tex`;

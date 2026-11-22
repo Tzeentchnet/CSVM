@@ -40,6 +40,351 @@ internal static class WorldAndToolSuites
         ("cblock1", false), ("bldg1", false), ("wtr00000", false),
     };
 
+    [Suite("campaign-mission-editor-undo",
+        "the Godot undo bridge dispatches recorded edits and rejects replay after unload")]
+    internal static void CampaignMissionEditorUndo(TestContext ctx)
+    {
+        var mission = new CampaignMission(0, "Invented", 6, 1, "Invented", false);
+        var document = CampaignMissionDocument.FromScope(mission, new ZrdrSet("invented", new[]
+        {
+            new ZrdrFile("probe.zrd", null, new List<object?> { "before" }),
+        }));
+        var history = new UndoRedo();
+        var bridge = new CampaignMissionUndoBridge();
+        var callbacks = new List<CampaignMissionUndoInvocation>();
+        int refreshes = 0;
+        int registrations = 0;
+        try
+        {
+            void Register(string name, long id)
+            {
+                registrations++;
+                CampaignMissionUndoBridge.RequirePublished(
+                    handler => history.VersionChanged += handler,
+                    handler => history.VersionChanged -= handler,
+                    () =>
+                    {
+                        history.CreateAction(name);
+                        var replay = new CampaignMissionUndoInvocation(bridge, id, forward: true);
+                        var reverse = new CampaignMissionUndoInvocation(bridge, id, forward: false);
+                        callbacks.Add(replay);
+                        callbacks.Add(reverse);
+                        history.AddDoMethod(new Callable(replay, nameof(replay.Replay)));
+                        history.AddUndoMethod(new Callable(reverse, nameof(reverse.Replay)));
+                        history.CommitAction(false);
+                    });
+            }
+
+            bridge.Bind(document, Register, () => refreshes++);
+            ctx.Check(bridge.HasMethod(nameof(bridge.Replay)), $"the bridge method is callable by Godot");
+            ctx.Check(!document.SetLeaf(0, new[] { 0 }, "before"), $"an unchanged edit creates no action");
+            ctx.Same(0, registrations, $"no-op registration count");
+            ctx.Check(document.SetLeaf(0, new[] { 0 }, "after"), $"a raw edit is registered");
+            ctx.Same(1, registrations, $"successful edit registration count");
+            ctx.Check(history.Undo(), $"the history accepts undo");
+            ctx.Check((string?)document.ValueAt(0, new[] { 0 }) == "before", $"undo reaches the raw document");
+            ctx.Check(!document.IsDirty, $"undo restores the clean state");
+            ctx.Check(history.Redo(), $"the history accepts redo");
+            ctx.Check((string?)document.ValueAt(0, new[] { 0 }) == "after", $"redo reaches the raw document");
+            ctx.Same(2, refreshes, $"undo and redo refresh the dock");
+            bridge.Invalidate();
+            var replacement = CampaignMissionDocument.FromScope(mission, new ZrdrSet("replacement", new[]
+            {
+                new ZrdrFile("probe.zrd", null, new List<object?> { "replacement" }),
+            }));
+            bridge.Bind(replacement, Register, () => refreshes++);
+            ctx.Check(replacement.SetLeaf(0, new[] { 0 }, "changed"), $"the replacement edit is registered");
+            ctx.Check(history.Undo(), $"the replacement edit is undone");
+            ctx.Check(history.Undo(), $"the old action remains in Godot history");
+            ctx.Check((string?)document.ValueAt(0, new[] { 0 }) == "after", $"the previous document is unchanged");
+            ctx.Check((string?)replacement.ValueAt(0, new[] { 0 }) == "replacement", $"the old action cannot reach the replacement");
+            ctx.Check(history.Redo(), $"the old action can be traversed without replay");
+            ctx.Check(history.Redo(), $"the replacement edit is redone");
+            ctx.Same(4, refreshes, $"only live actions refresh the dock");
+            bridge.Invalidate();
+            ctx.Check(history.Undo(), $"the unloaded action remains in history");
+            ctx.Check((string?)replacement.ValueAt(0, new[] { 0 }) == "changed", $"an unloaded bridge cannot replay it");
+            ctx.Same(4, refreshes, $"an unloaded bridge cannot refresh the old dock");
+
+            var failed = CampaignMissionDocument.FromScope(mission, new ZrdrSet("failed", new[]
+            {
+                new ZrdrFile("probe.zrd", null, new List<object?> { "before" }),
+            }));
+            bridge.Bind(failed, (name, id) =>
+            {
+                Register(name, id);
+                throw new System.InvalidOperationException("history registration failed");
+            }, () => refreshes++);
+            bool rejected = false;
+            try
+            {
+                failed.SetLeaf(0, new[] { 0 }, "after");
+            }
+            catch (System.InvalidOperationException)
+            {
+                rejected = true;
+            }
+
+            ctx.Check(rejected && !failed.IsDirty && failed.Revision == 0, $"a failed registration rolls back");
+            ctx.Check(history.Undo() && history.Redo(), $"the aborted action can be traversed");
+            ctx.Check((string?)failed.ValueAt(0, new[] { 0 }) == "before", $"an aborted action cannot replay");
+            ctx.Same(4, refreshes, $"an aborted action cannot refresh the dock");
+
+            bridge.Invalidate();
+            var nested = CampaignMissionDocument.FromScope(mission, new ZrdrSet("nested", new[]
+            {
+                new ZrdrFile("probe.zrd", null, new List<object?> { "before" }),
+            }));
+            int rollbacks = 0;
+            bridge.Bind(nested, Register, () => refreshes++, () => rollbacks++);
+            history.CreateAction("unrelated action");
+            rejected = false;
+            try
+            {
+                nested.SetLeaf(0, new[] { 0 }, "after");
+            }
+            catch (System.InvalidOperationException)
+            {
+                rejected = true;
+            }
+
+            ctx.Check(rejected && !nested.IsDirty && nested.Revision == 0, $"a nested action is rolled back");
+            ctx.Same(1, rollbacks, $"the dock can rebind after rollback");
+            history.CommitAction(false);
+            ctx.Check(history.Undo() && history.Redo(), $"the unrelated action remains traversable");
+            ctx.Check((string?)nested.ValueAt(0, new[] { 0 }) == "before", $"nested callbacks remain inert");
+            ctx.Same(4, refreshes, $"a nested action cannot refresh the dock");
+
+            bridge.Invalidate();
+            var deferredDocument = CampaignMissionDocument.FromScope(mission, new ZrdrSet("deferred", new[]
+            {
+                new ZrdrFile("probe.zrd", null, new List<object?> { "before" }),
+            }));
+            var deferred = new Queue<System.Action>();
+            int failures = 0;
+            bridge.Bind(
+                deferredDocument, Register, () => refreshes++,
+                defer: deferred.Enqueue, registrationFailed: _ => failures++);
+            int previousRegistrations = registrations;
+            history.CreateAction("foreign action");
+            ctx.Check(deferredDocument.SetLeaf(0, new[] { 0 }, "after"), $"a deferred edit is applied");
+            ctx.Same(previousRegistrations, registrations, $"registration waits for the foreign callback");
+            history.CommitAction(false);
+            ctx.Check(history.GetCurrentActionName() == "foreign action", $"the foreign action keeps its name");
+            deferred.Dequeue()();
+            ctx.Same(previousRegistrations + 1, registrations, $"the captured edit is registered once");
+            ctx.Check(history.GetCurrentActionName() == "Edit raw value", $"the deferred edit has its own action");
+            ctx.Check(history.Undo(), $"the deferred action can be undone");
+            ctx.Check((string?)deferredDocument.ValueAt(0, new[] { 0 }) == "before", $"deferred undo reaches its document");
+            ctx.Check(history.Redo(), $"the deferred action can be redone");
+            ctx.Check((string?)deferredDocument.ValueAt(0, new[] { 0 }) == "after", $"deferred redo reaches its document");
+            ctx.Same(6, refreshes, $"deferred undo and redo refresh the dock");
+            ctx.Same(0, failures, $"deferred registration succeeds");
+
+            bridge.Invalidate();
+            var unloaded = CampaignMissionDocument.FromScope(mission, new ZrdrSet("unloaded", new[]
+            {
+                new ZrdrFile("probe.zrd", null, new List<object?> { "before" }),
+            }));
+            bridge.Bind(
+                unloaded, Register, () => refreshes++,
+                defer: deferred.Enqueue, registrationFailed: _ => failures++);
+            ctx.Check(unloaded.SetLeaf(0, new[] { 0 }, "after"), $"an edit can be queued before unload");
+            bridge.Invalidate();
+            deferred.Dequeue()();
+            ctx.Same(previousRegistrations + 1, registrations, $"unload cancels unpublished callbacks");
+            ctx.Check(history.Undo(), $"the previously published action remains traversable");
+            ctx.Check((string?)deferredDocument.ValueAt(0, new[] { 0 }) == "after", $"unloaded history is inert");
+            ctx.Same(6, refreshes, $"unloaded callbacks cannot refresh the dock");
+
+            var deferredFailure = CampaignMissionDocument.FromScope(mission, new ZrdrSet("deferred failure", new[]
+            {
+                new ZrdrFile("probe.zrd", null, new List<object?> { "before" }),
+            }));
+            int deferredRollbacks = 0;
+            bridge.Bind(deferredFailure, (name, id) =>
+            {
+                Register(name, id);
+                throw new System.InvalidOperationException("history registration failed");
+            }, () => refreshes++, () => deferredRollbacks++, deferred.Enqueue, _ => failures++);
+            ctx.Check(deferredFailure.SetLeaf(0, new[] { 0 }, "after"), $"the failed edit is initially applied");
+            deferred.Dequeue()();
+            ctx.Check((string?)deferredFailure.ValueAt(0, new[] { 0 }) == "before", $"failed publication restores the document");
+            ctx.Check(!deferredFailure.IsDirty && deferredFailure.Revision == 0, $"failed publication restores history state");
+            ctx.Same(1, deferredRollbacks, $"failed publication notifies rollback");
+            ctx.Same(1, failures, $"failed publication reports the error");
+            ctx.Check(history.Undo() && history.Redo(), $"the aborted deferred action remains traversable");
+            ctx.Check((string?)deferredFailure.ValueAt(0, new[] { 0 }) == "before", $"aborted deferred callbacks are inert");
+            ctx.Same(6, refreshes, $"aborted deferred callbacks cannot refresh the dock");
+        }
+        finally
+        {
+            bridge.Invalidate();
+            history.Free();
+            foreach (CampaignMissionUndoInvocation callback in callbacks)
+            {
+                callback.Dispose();
+            }
+            bridge.Dispose();
+        }
+    }
+
+    [Suite("campaign-mission-preview",
+        "the mission preview applies setup to an invented world, selectively replaces overlays, and frees every owned node")]
+    internal static void CampaignMissionPreviewNodes(TestContext ctx)
+    {
+        var world = new GameZ();
+        var root = new GameZNode { Index = 0, Name = "world1", Kind = "World" };
+        var host = new GameZNode { Index = 1, Name = "carrier.flt", Kind = "Object3d" };
+        var origin = new GameZNode
+        {
+            Index = 2,
+            Name = "bay",
+            Kind = "Object3d",
+            Local = new Transform3D(Basis.Identity, new Vector3(4f, 0f, 0f)),
+        };
+        var unrelated = new GameZNode
+        {
+            Index = 3,
+            Name = "bay",
+            Kind = "Object3d",
+            MeshIndex = 0,
+            Local = new Transform3D(Basis.Identity, new Vector3(999f, 0f, 0f)),
+        };
+        var mesh = new GameZMesh();
+        mesh.Vertices.AddRange(new[] { Vector3.Zero, Vector3.Right, Vector3.One, Vector3.Up });
+        var polygon = new GameZPolygon { ShowBackface = true };
+        polygon.VertexIndices.AddRange(new[] { 0, 1, 2, 3 });
+        mesh.Polygons.Add(polygon);
+        world.Meshes.Add(mesh);
+        root.Children.AddRange(new[] { 3, 1 });
+        host.Children.Add(2);
+        world.Nodes.AddRange(new[] { root, host, origin, unrelated });
+        var scripts = new InterpScripts(new List<InterpScript>
+        {
+            new("support\\c1\\m01.gw", new[]
+            {
+                "FindNode carrier.flt",
+                "Object3DTranslate 10 20 30",
+                "Object3DRotate 0 90 0",
+            }),
+        });
+        MissionSetup? setup = MissionSetup.Load(scripts, "C1", "M01");
+        var mission = new CampaignMission(0, "Invented", 6, 1, "Invented", false);
+        var empty = new ZrdrSet("invented", System.Array.Empty<ZrdrFile>());
+        var bundle = new CampaignMissionDependencyBundle(
+            System.Guid.NewGuid(), mission,
+            PreviewDependency(empty, CampaignDependencyState.Ready),
+            PreviewDependency<GameZ?>(world, CampaignDependencyState.Ready),
+            PreviewDependency(new TextureSet("invented", System.Array.Empty<TextureImage>()), CampaignDependencyState.Ready),
+            PreviewDependency(empty, CampaignDependencyState.Ready),
+            PreviewDependency<AnimArchive?>(null, CampaignDependencyState.Missing),
+            PreviewDependency<AnimArchive?>(null, CampaignDependencyState.Missing),
+            PreviewDependency(new Messages(), CampaignDependencyState.Ready),
+            PreviewDependency<InterpScripts?>(scripts, CampaignDependencyState.Ready),
+            PreviewDependency(setup, CampaignDependencyState.Ready),
+            null);
+        var viewport = new SubViewport { OwnWorld3D = true, World3D = new World3D() };
+        ctx.Host.AddChild(viewport);
+        CampaignMissionPreviewWorld? stage = null;
+        try
+        {
+            stage = CampaignMissionPreviewWorld.Build(viewport, bundle);
+            ctx.Check(stage.TryPose("carrier.flt", out Transform3D setupPose),
+                $"the original unsanitized host name resolves");
+            ctx.Check(setupPose.Origin.DistanceTo(new Vector3(10f, 20f, 30f)) < 0.001f,
+                $"setup translates the built host in its parent frame");
+            ctx.Check(stage.TryGenerator("carrier.flt", "bay", true,
+                out Transform3D carrier, out Vector3 offset, out _),
+                $"the origin resolves under its host, not the unrelated bay");
+            ctx.Check(offset.DistanceTo(new Vector3(4f, 0f, 0f)) < 0.001f,
+                $"the origin offset stays host-relative");
+            ctx.Check((carrier * offset).DistanceTo(new Vector3(10f, 20f, 26f)) < 0.001f,
+                $"setup rotation carries the origin into world coordinates");
+            ctx.Check(stage.TryTarget(new[] { "carrier.flt", "bay" }, out Vector3 site)
+                && site.DistanceTo(carrier * offset) < 0.001f,
+                $"the scoped target resolves to the same built child");
+            var source = new CampaignPreviewSource(ReferenceScope.Mission, "invented", 0, default);
+            var placed = new CampaignPreviewItem(
+                CampaignPreviewLayers.Zeppelins, "carrier.flt", source, null,
+                CampaignPreviewTransforms.Zeppelin(new Vector3(100f, 200f, 300f), 90f, 0f),
+                default, true, "");
+            stage.PlaceZeppelins(new[] { placed, placed with { Pose = new Transform3D(Basis.Identity, Vector3.One) } });
+            ctx.Check(stage.TryPose("carrier.flt", out Transform3D duplicatePose)
+                && duplicatePose.Origin == Vector3.One, $"the last hull definition places the shared host");
+            stage.PlaceZeppelins(System.Array.Empty<CampaignPreviewItem>());
+            ctx.Check(stage.TryPose("carrier.flt", out Transform3D restored)
+                && restored.IsEqualApprox(setupPose), $"removing duplicate hull definitions restores the setup pose");
+            Node3D built = viewport.GetNode<Node3D>("world1");
+            ctx.Check(built.Owner == null, $"built chapter nodes have no scene owner");
+            Mesh? rendered = FirstMesh(built)?.Mesh;
+            bool hasSurface = rendered != null && rendered.GetSurfaceCount() > 0;
+            ctx.Check(hasSurface, $"the invented chapter contains built mesh geometry");
+            ShaderMaterial? material = hasSurface ? rendered!.SurfaceGetMaterial(0) as ShaderMaterial : null;
+            ctx.Check(material != null && ShaderTwins.IsTracked(material),
+                $"the built material is tracked under the preview");
+            stage.Dispose();
+            stage = null;
+            ctx.Check(!GodotObject.IsInstanceValid(built), $"disposing the stage frees the chapter root");
+            ctx.Check(material != null && !ShaderTwins.IsTracked(material),
+                $"disposing the stage untracks its materials");
+        }
+        finally
+        {
+            stage?.Dispose();
+            viewport.Free();
+        }
+
+        var document = CampaignMissionDocument.FromScope(mission, new ZrdrSet("mission", new[]
+        {
+            new ZrdrFile("objectives.zrd", null, PreviewRow(PreviewRow(
+                "PLAYER_INIT", PreviewRow(1f, PreviewRow(1f, 2f, 3f),
+                    PreviewRow(0f, 0f, 0f), 1f, 100f)))),
+            new ZrdrFile("zeppelins.zrd", null, PreviewRow(PreviewRow(PreviewRow(
+                "node", PreviewRow("carrier.flt"), "net", PreviewRow("missing"),
+                "position", PreviewRow(100f, 200f, 300f), "yaw", PreviewRow(90f))))),
+            new ZrdrFile("egen.zrd", null, PreviewRow(PreviewRow(PreviewRow(
+                "node", PreviewRow("carrier.flt"), "vehicle", PreviewRow("nets", PreviewRow("net")),
+                "zeppelin", "origin", PreviewRow("bay"))))),
+        }));
+        var panel = new CampaignMissionPreviewPanel();
+        ctx.Host.AddChild(panel);
+        try
+        {
+            panel.Bind(document, bundle, CampaignDangerZoneWorld.Read(bundle.World));
+            panel.GetNode<Button>("preview_toggle").EmitSignal(BaseButton.SignalName.Pressed);
+            var container = panel.GetNode<SubViewportContainer>("preview_container");
+            var view = container.GetNodeOrNull<SubViewport>("mission_preview");
+            ctx.Check(view != null, $"opening creates a preview viewport");
+            if (view == null)
+            {
+                return;
+            }
+
+            var overlays = view.GetNode<Node3D>("derived_overlays");
+            var playerLayer = overlays.GetNode<Node3D>("Player");
+            var generatorLayer = overlays.GetNode<Node3D>("Generators");
+            var generator = generatorLayer.GetChild<Node3D>(0);
+            ctx.Check(generator.GlobalPosition.DistanceTo(new Vector3(100f, 200f, 296f)) < 0.001f,
+                $"the generator follows the placed hull in its rotated frame");
+            ctx.Check(overlays.Owner == null && playerLayer.Owner == null && generator.Owner == null,
+                $"preview overlays have no scene owner");
+            document.SetLeaf(0, new[] { 0, 1, 1, 0 }, 7f);
+            panel._Process(0d);
+            ctx.Check(!GodotObject.IsInstanceValid(playerLayer), $"an edited start frees its former layer");
+            ctx.Check(GodotObject.IsInstanceValid(generatorLayer)
+                && overlays.GetNode<Node3D>("Generators").GetInstanceId() == generatorLayer.GetInstanceId(),
+                $"an unrelated generator layer keeps its node instance");
+            panel.Clear();
+            ctx.Check(!GodotObject.IsInstanceValid(view), $"closing the panel frees its viewport and overlays");
+            document.SetLeaf(0, new[] { 0, 1, 1, 0 }, 8f);
+        }
+        finally
+        {
+            panel.Free();
+        }
+    }
+
     // Exports a built plane to a temp .glb and asserts the file lands and re-imports textured, the
     // right way out: the round trip the viewer's export paths rely on.
     [Suite("gltf-export", "the viewer plane exports to glTF textured and wound the right way out")]
@@ -4420,6 +4765,27 @@ internal static class WorldAndToolSuites
         return node;
     }
 
+    private static CampaignDependency<T> PreviewDependency<T>(T value, CampaignDependencyState state) =>
+        new(value, new CampaignDependencyAvailability("invented", state, false));
+
+    private static List<object?> PreviewRow(params object?[] values) => new(values);
+
     private static string LiveNames(Node root) =>
         string.Join(", ", root.FindChildren("*", "", true, false).Select(n => n.Name.ToString()).Prepend(root.Name.ToString()));
+}
+
+internal sealed partial class CampaignMissionUndoInvocation : RefCounted
+{
+    private readonly CampaignMissionUndoBridge _bridge;
+    private readonly bool _forward;
+    private readonly long _id;
+
+    internal CampaignMissionUndoInvocation(CampaignMissionUndoBridge bridge, long id, bool forward)
+    {
+        _bridge = bridge;
+        _id = id;
+        _forward = forward;
+    }
+
+    public void Replay() => _bridge.Replay(_bridge, _id, _forward);
 }
